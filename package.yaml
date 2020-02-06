@@ -1,0 +1,94 @@
+_common: !include "shared.yaml"
+
+name: user-system
+<<: *common
+
+dependencies:
+  - base
+
+library:
+  source-dirs:
+    - src
+  dependencies:
+    - aeson
+    - base
+    - bcrypt
+    - bytestring
+    - cookie
+    - cryptonite
+    - directory
+    - exceptions
+    - geojson
+    - mtl
+    - http-api-data
+    - optparse-applicative
+    - postgresql-simple
+    - random
+    - servant-client
+    - servant-client-core
+    - servant-js
+    - servant-server
+    - text
+    - time
+    - transformers
+    - unix
+    - unordered-containers
+    - uuid
+    - wai
+    - wai-extra
+    - warp
+  <<: *library
+
+executables:
+  user-system:
+    main: 'app/Entry.hs'
+    dependencies:
+      - user-system
+    <<: *executable
+  drop:
+    main: 'app/Drop.hs'
+    dependencies:
+      - base
+      - exceptions
+      - user-system
+      - mtl
+      - postgresql-simple
+      - time
+      - transformers
+      - unix
+    <<: *executable
+  migrate:
+    main: 'app/Migrate.hs'
+    dependencies:
+      - base
+      - exceptions
+      - user-system
+      - mtl
+      - postgresql-simple
+      - time
+      - transformers
+      - unix
+    <<: *executable
+  docs:
+    main: 'app/Docs.hs'
+    dependencies:
+      - base
+      - bytestring
+      - cookie
+      - user-system
+      - lens
+      - mtl
+      - servant-client
+      - servant-docs
+      - servant-server
+      - text
+      - time
+      - transformers
+
+tests:
+  test:
+    main: Test.hs
+    source-dirs: test
+    dependencies:
+      - user-system
+    <<: *test
