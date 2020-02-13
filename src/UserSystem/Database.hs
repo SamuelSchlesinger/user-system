@@ -7,6 +7,7 @@ import Control.Monad.Catch
 import Control.Monad.Except
 import Control.Monad.Reader.Class
 import Control.Monad.Trans.Reader (ReaderT(..))
+import Data.Pool
 import Data.Text (Text)
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.SqlQQ
@@ -23,16 +24,16 @@ testInfo username = ConnectInfo {
 
 runTestDatabaseT :: (MonadIO m, MonadMask m) => String -> DatabaseT m a -> m a
 runTestDatabaseT username (DatabaseT (ReaderT r)) 
-  = bracket (liftIO (connect (testInfo username))) (liftIO . close) r
+  = bracket (createDatabasePool (testInfo username)) (liftIO . destroyAllResources) r
+
+createDatabasePool :: MonadIO m => ConnectInfo -> m (Pool Connection)
+createDatabasePool i = liftIO $ createPool (connect i) close 4 5 10
 
 runDatabaseT :: (MonadIO m, MonadMask m) => ConnectInfo -> DatabaseT m a -> m a
-runDatabaseT i (DatabaseT (ReaderT r)) = bracket (liftIO $ connect i) (liftIO . close) r
+runDatabaseT i (DatabaseT (ReaderT r)) = bracket (createDatabasePool i) (liftIO . destroyAllResources) r
 
-runSharedDatabaseT :: (MonadIO m, MonadMask m) => Connection -> DatabaseT m a -> m a
-runSharedDatabaseT i (DatabaseT (ReaderT r)) = r i
-
-newtype DatabaseT m a = DatabaseT { unDatabaseT :: ReaderT Connection m a }
-  deriving newtype (MonadReader Connection, Monad, Functor, Applicative, MonadIO, MonadTrans, MonadMask, MonadThrow, MonadCatch, Alternative, MonadPlus)
+newtype DatabaseT m a = DatabaseT { unDatabaseT :: ReaderT (Pool Connection) m a }
+  deriving newtype (MonadReader (Pool Connection), Monad, Functor, Applicative, MonadIO, MonadTrans, MonadMask, MonadThrow, MonadCatch, Alternative, MonadPlus)
 
 instance (MonadError e m, MonadCatch m, Exception e) => MonadError e (DatabaseT m) where
   throwError = lift . throwError
@@ -41,8 +42,15 @@ instance (MonadError e m, MonadCatch m, Exception e) => MonadError e (DatabaseT 
 class MonadIO m => MonadDatabase m where
   withConnection :: (Connection -> m a) -> m a
 
-instance MonadIO m => MonadDatabase (DatabaseT m) where
-  withConnection = (ask >>=)
+instance (MonadMask m, MonadIO m) => MonadDatabase (DatabaseT m) where
+  withConnection a = do
+    p <- ask
+    mask $ \restore -> do
+      (resource, localPool) <- liftIO $ takeResource p
+      ret <- restore (a resource) `catch` throwM @_ @SomeException
+      liftIO $ putResource localPool resource
+      return ret
+    
 
 insertUsers :: MonadDatabase m => [User] -> m ()
 insertUsers users = withConnection \c -> do

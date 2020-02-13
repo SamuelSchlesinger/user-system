@@ -1,7 +1,9 @@
 module UserSystem.Server (freezeProxy, ctx, ctxProxy, server) where
 
 import Control.Monad.Except
+import Control.Monad.Reader
 import Database.PostgreSQL.Simple hiding ((:.))
+import Data.Pool
 import UserSystem.API
 import UserSystem.Database
 import UserSystem.Monad
@@ -18,8 +20,8 @@ freezeProxy = Proxy
 ctxProxy :: Proxy Ctx
 ctxProxy = Proxy
 
-ctx :: Connection -> Context Ctx
-ctx conn = mkAuthHandler validate :. EmptyContext
+ctx :: Pool Connection -> Context Ctx
+ctx pool = mkAuthHandler validate :. EmptyContext
   where
     validate :: Wai.Request -> Handler User
     validate req = do
@@ -31,7 +33,7 @@ ctx conn = mkAuthHandler validate :. EmptyContext
           return $ lookup "user" $ parseCookiesText cookie
       maybe
         (throwError err401 {errReasonPhrase = "Could not validate token"})
-        return =<< runSharedDatabaseT conn (validateToken token)
+        return =<< (runReaderT . unDatabaseT) (validateToken token) pool
 
 server :: MonadUserSystem m => ServerT UserSystemAPI m
 server = account :<|> serveDirectoryWebApp "static"
