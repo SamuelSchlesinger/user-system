@@ -13,6 +13,7 @@ import System.IO
 import System.Posix.User
 import UserSystem.Database
 import UserSystem.Server
+import UserSystem.Server.Reaper
 
 main :: IO ()
 main = do
