@@ -18,7 +18,10 @@ import Web.Cookie
 import UserSystem.API.Types
 
 account :: MonadUserSystem m => ServerT AccountAPI m
-account = signup :<|> signin :<|> \user -> newToken user :<|> changePassword user :<|> changeUsername user
+account = signup :<|> signin :<|> authenticatedAccount
+
+authenticatedAccount :: MonadUserSystem m => ServerT AuthenticatedAccountAPI m
+authenticatedAccount user = newToken user :<|> changePassword user :<|> changeUsername user
 
 signup :: MonadUserSystem m => SignUp -> m (Response SignUp)
 signup (SignUp username password) = do

@@ -10,6 +10,7 @@ library:
   source-dirs:
     - src
   dependencies:
+    - async
     - aeson
     - base
     - bcrypt
@@ -29,6 +30,7 @@ library:
     - servant-client-core
     - servant-js
     - servant-server
+    - stm
     - text
     - time
     - transformers

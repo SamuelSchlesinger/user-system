@@ -1,10 +1,9 @@
 module UserSystem where
 
-import Control.Monad.Reader.Class
+import Control.Exception
 import Control.Monad.Reader
+import Data.IORef
 import Data.Time.Clock
-import UserSystem.Database
-import UserSystem.Server
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.RequestLogger
 import Servant.Server
@@ -12,13 +11,18 @@ import System.Directory
 import System.Environment
 import System.IO
 import System.Posix.User
+import UserSystem.Database
+import UserSystem.Server
 
 main :: IO ()
 main = do
   getEnv "USER_SYSTEM_LOCATION" >>= setCurrentDirectory
   connInfo <- testInfo <$> getEffectiveUserName
-  runDatabaseT connInfo do
+  sessionReaper <- newIORef Nothing
+  flip finally (maybe (pure ()) stopSessionReaper =<< readIORef sessionReaper) $ runDatabaseT connInfo do
     pool <- ask
+    reaper <- startSessionReaper
+    liftIO $ atomicWriteIORef sessionReaper (Just reaper)
     let app = serveWithContext 
                 freezeProxy 
                 (ctx pool) 

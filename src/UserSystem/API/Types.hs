@@ -1,9 +1,9 @@
 module UserSystem.API.Types where
 
 import Data.Aeson
-import Web.FormUrlEncoded
-import GHC.Generics (Generic)
 import Data.Text
+import GHC.Generics (Generic)
+import Web.FormUrlEncoded
 
 data family Response a
 
