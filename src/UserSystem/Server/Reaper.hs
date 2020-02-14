@@ -36,5 +36,3 @@ stopSessionReaper (SessionReaper pid stop finished) = do
   atomically $ writeTVar stop True
   atomically $ check =<< readTVar finished
   killThread pid
-
-

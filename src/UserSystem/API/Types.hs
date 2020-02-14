@@ -4,6 +4,14 @@ import Data.Aeson
 import Data.Text
 import GHC.Generics (Generic)
 import Web.FormUrlEncoded
+import Servant
+import Web.Cookie
+
+type WithCookieHeaders res
+   = Headers '[ Header "Set-Cookie" SetCookie
+              , Header "Access-Control-Allow-Origin" String
+              , Header "Access-Control-Allow-Headers" String
+              , Header "Access-Control-Allow-Credentials" Bool ] res
 
 data family Response a
 

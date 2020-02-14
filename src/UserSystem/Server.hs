@@ -37,3 +37,15 @@ authenticateRequest pool req = do
 
 server :: MonadUserSystem m => ServerT UserSystemAPI m
 server = account :<|> serveDirectoryWebApp "static"
+
+account :: MonadUserSystem m => ServerT AccountAPI m
+account = signup :<|> signin :<|> authenticatedAccount
+
+authenticatedAccount :: MonadUserSystem m => ServerT AuthenticatedAccountAPI m
+authenticatedAccount user 
+     = newToken user 
+  :<|> changePassword user 
+  :<|> changeUsername user 
+  :<|> createObject user 
+  :<|> editObject user
+  :<|> readObject user

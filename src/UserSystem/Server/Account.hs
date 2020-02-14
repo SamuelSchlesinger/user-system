@@ -1,4 +1,4 @@
-module UserSystem.Server.Account (account) where
+module UserSystem.Server.Account where
 
 import Control.Monad.Except
 import Data.Text
@@ -8,7 +8,6 @@ import Data.Time.Clock
 import qualified Crypto.BCrypt as BCrypt
 import Crypto.BCrypt (validatePassword)
 import Data.UUID
-import UserSystem.API
 import UserSystem.Database
 import UserSystem.Ontology
 import UserSystem.Monad
@@ -16,18 +15,6 @@ import Servant
 import System.Random
 import Web.Cookie
 import UserSystem.API.Types
-
-account :: MonadUserSystem m => ServerT AccountAPI m
-account = signup :<|> signin :<|> authenticatedAccount
-
-authenticatedAccount :: MonadUserSystem m => ServerT AuthenticatedAccountAPI m
-authenticatedAccount user 
-     = newToken user 
-  :<|> changePassword user 
-  :<|> changeUsername user 
-  :<|> createObject user 
-  :<|> editObject user
-  :<|> readObject user
 
 readObject :: MonadUserSystem m => User -> ReadObject -> m (Response ReadObject)
 readObject User{userID} (ReadObject objectName) = do

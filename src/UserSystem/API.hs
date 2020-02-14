@@ -17,12 +17,6 @@ type SimplePost req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] re
 
 type SimplePostWithHeaders res = Post '[JSON] (WithCookieHeaders res)
 
-type WithCookieHeaders res
-   = Headers '[ Header "Set-Cookie" SetCookie
-              , Header "Access-Control-Allow-Origin" String
-              , Header "Access-Control-Allow-Headers" String
-              , Header "Access-Control-Allow-Credentials" Bool ] res
-
 type AccountAPI
      = "signup" :> SimplePost SignUp (Response SignUp)
   :<|> "signin" :> SimplePost SignIn (WithCookieHeaders (Response SignIn)) 
