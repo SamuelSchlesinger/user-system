@@ -14,6 +14,10 @@ main = do
     void . liftIO $ execute_ c [sql|
      drop table executed_migrations cascade;
      drop table users cascade;
-     drop table sessions;
+     drop table sessions cascade;
+     drop table objects cascade;
+     drop table session_roles cascade;
+     drop table user_roles cascade;
+     drop type role;
     |]
 

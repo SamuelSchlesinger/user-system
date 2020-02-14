@@ -30,9 +30,13 @@ type AccountAPI
   
 type AuthenticatedAccountAPI
     = AuthProtect "user" :> 
-     ("new-token" :> SimplePostWithHeaders (Response SignIn)
+     ( "new-token" :> SimplePostWithHeaders (Response SignIn)
  :<|> "change-password" :> SimplePost ChangePassword (Response ChangePassword)
- :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername))
+ :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername)
+ :<|> "create-object" :> SimplePost CreateObject (Response CreateObject)
+ :<|> "edit-object" :> SimplePost EditObject (Response EditObject)
+ :<|> "read-object" :> SimplePost ReadObject (Response ReadObject)
+     )
 
 type Ctx = AuthHandler Wai.Request User ': '[]
 
