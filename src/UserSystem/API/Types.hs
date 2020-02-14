@@ -29,3 +29,21 @@ data SignIn = SignIn
 data instance Response SignIn = SignedIn
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+data ChangePassword = ChangePassword
+  { changePasswordNewPassword :: Text }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
+
+data instance Response ChangePassword = ChangedPassword
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
+data ChangeUsername = ChangeUsername
+  { changeUsernameNewUsername :: Text }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
+
+data instance Response ChangeUsername = ChangedUsername
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON)
