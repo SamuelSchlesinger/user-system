@@ -18,9 +18,13 @@ instance ToSample ()
 instance ToSample (Key User) where toSamples _ = [("Sam's username", Key "samuel")]
 instance ToSample (Response SignIn) where toSamples _ = []
 instance ToSample (Response SignUp) where toSamples _ = []
+instance ToSample (Response ChangePassword) where toSamples _ = []
+instance ToSample (Response ChangeUsername) where toSamples _ = []
 instance ToSample SetCookie where toSamples _ = []
 instance ToSample SignIn where toSamples _ = [("Samuel Schlesinger", SignIn "samuel" "password")]
 instance ToSample SignUp where toSamples _ = [("Samuel Schlesinger", SignUp "samuel" "password")]
+instance ToSample ChangePassword where toSamples _ = [("Samuel Schlesinger", ChangePassword "new-password")]
+instance ToSample ChangeUsername where toSamples _ = [("Samuel Schlesinger", ChangeUsername "new-username")]
 instance ToSample UTCTime where toSamples _ = []
 instance ToSample Char where toSamples _ = [(pack [x], x) | x <- ['a' .. 'z']]
 

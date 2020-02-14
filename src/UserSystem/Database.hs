@@ -101,6 +101,12 @@ insertExecutedMigrations executedMigrations = withConnection \c -> do
     values (?, ?);
   |] executedMigrations
 
+reapSessions :: MonadDatabase m => m ()
+reapSessions = withConnection \c -> do
+  void . liftIO $ execute_ c [sql|
+    delete from sessions where sessions.creation_date < now() - interval '1 hour';
+    |]
+
 validateToken :: MonadDatabase m => Text -> m (Maybe User)
 validateToken token = withConnection \c -> do
   (liftIO $ query c [sql|

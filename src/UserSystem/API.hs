@@ -2,12 +2,12 @@
 
 module UserSystem.API where
 
-import UserSystem.Ontology
 import Servant
 import Servant.Server.Experimental.Auth
+import UserSystem.API.Types
+import UserSystem.Ontology
 import Web.Cookie
 import qualified Network.Wai as Wai
-import UserSystem.API.Types
 
 type UserSystemAPI
      = "account" :> AccountAPI 
@@ -26,12 +26,13 @@ type WithCookieHeaders res
 type AccountAPI
      = "signup" :> SimplePost SignUp (Response SignUp)
   :<|> "signin" :> SimplePost SignIn (WithCookieHeaders (Response SignIn)) 
-  :<|> AuthProtect "user" :> AuthorizedAccountAPI
+  :<|> AuthenticatedAccountAPI
   
-type AuthorizedAccountAPI
-    = "new-token" :> SimplePostWithHeaders (Response SignIn)
+type AuthenticatedAccountAPI
+    = AuthProtect "user" :> 
+     ("new-token" :> SimplePostWithHeaders (Response SignIn)
  :<|> "change-password" :> SimplePost ChangePassword (Response ChangePassword)
- :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername)
+ :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername))
 
 type Ctx = AuthHandler Wai.Request User ': '[]
 
