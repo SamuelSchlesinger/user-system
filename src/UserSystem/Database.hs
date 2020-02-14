@@ -7,6 +7,7 @@ import Control.Monad.Catch
 import Control.Monad.Except
 import Control.Monad.Reader.Class
 import Control.Monad.Trans.Reader (ReaderT(..))
+import Data.ByteString (ByteString)
 import Data.Pool
 import Data.Text (Text)
 import Database.PostgreSQL.Simple
@@ -59,14 +60,39 @@ insertUsers users = withConnection \c -> do
     values (?, ?, ?, ?);
    |] users
 
+updateUserPasshash :: MonadDatabase m => Key User -> ByteString -> m Bool
+updateUserPasshash user passhash = withConnection \c -> do
+  lookupUsers [user] >>= \case
+    [_] -> do
+      void . liftIO $ execute c [sql|
+        update users
+        set passhash = ?
+        where users.id = ?; 
+      |] (passhash, user)
+      return True
+    [] -> return False
+    (_ : _) -> error "We have more than one user associated with this key"
+
+updateUsername :: MonadDatabase m => Key User -> Text -> m Bool
+updateUsername user username = withConnection \c -> do
+  lookupUsers [user] >>= \case
+    [_] -> do
+      void . liftIO $ execute c [sql|
+        update users
+        set username = ?
+        where users.id = ?;
+      |] (username, user)
+      return True
+    [] -> return False
+    (_ : _) -> error "We have more than one user associated with this key"
+    
+
 insertSessions :: MonadDatabase m => [Session] -> m ()
 insertSessions sessions = withConnection \c -> do
   void . liftIO $ executeMany c [sql|
     insert into sessions (id, owner, creation_date, token)
     values (?, ?, ?, ?);
-    |] ((\Session{..} -> 
-       (sessionID, sessionOwner, sessionCreationDate, sessionToken)) 
-       <$> sessions)
+    |] sessions
 
 insertExecutedMigrations :: MonadDatabase m => [ExecutedMigration] -> m ()
 insertExecutedMigrations executedMigrations = withConnection \c -> do

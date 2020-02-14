@@ -2,7 +2,6 @@ module Main where
 
 import Control.Monad
 import Control.Monad.Catch
-import Control.Monad.Reader.Class
 import Control.Monad.Trans
 import Data.List
 import Data.String
@@ -25,13 +24,12 @@ main = do
     forM_ migrationsToRun runMigration
 
 runMigration :: FilePath -> DatabaseT IO ()
-runMigration filepath = do
+runMigration filepath = withConnection \c -> do
   liftIO $ putStrLn $ "Running migration " <> filepath
   fileLocation <- 
     (<> "/migrations/" <> filepath) 
       <$> liftIO (getEnv "USER_SYSTEM_LOCATION")
   q :: Query <- fromString <$> liftIO (readFile fileLocation)
-  c <- ask
   void $ liftIO (execute_ c q)
   currentTime <- liftIO getCurrentTime
   void $ liftIO (execute c [sql|

@@ -18,7 +18,7 @@ import Web.Cookie
 import UserSystem.API.Types
 
 account :: MonadUserSystem m => ServerT AccountAPI m
-account = signup :<|> signin :<|> newToken
+account = signup :<|> signin :<|> \user -> newToken user :<|> changePassword user :<|> changeUsername user
 
 signup :: MonadUserSystem m => SignUp -> m (Response SignUp)
 signup (SignUp username password) = do
@@ -69,3 +69,16 @@ signin (SignIn username password) =
 
 newToken :: MonadUserSystem m => User -> m (WithCookieHeaders (Response SignIn))
 newToken User{userID} = createSession userID 
+
+changePassword :: MonadUserSystem m => User -> ChangePassword -> m (Response ChangePassword)
+changePassword User{userID} (ChangePassword newPassword) = do
+  newPasshash <- hashPassword newPassword
+  updateUserPasshash userID newPasshash >>= \case
+    True -> return ChangedPassword
+    False -> throwError err500
+
+changeUsername :: MonadUserSystem m => User -> ChangeUsername -> m (Response ChangeUsername)
+changeUsername User{userID} (ChangeUsername newUsername) = do
+  updateUsername userID newUsername >>= \case
+    True -> return ChangedUsername
+    False -> throwError err500

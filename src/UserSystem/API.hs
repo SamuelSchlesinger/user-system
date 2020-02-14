@@ -13,7 +13,7 @@ type UserSystemAPI
      = "account" :> AccountAPI 
   :<|> Raw
 
-type SimplePost req res = ReqBody '[FormUrlEncoded] req :> Post '[JSON] res
+type SimplePost req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] res
 
 type SimplePostWithHeaders res = Post '[JSON] (WithCookieHeaders res)
 
@@ -26,7 +26,12 @@ type WithCookieHeaders res
 type AccountAPI
      = "signup" :> SimplePost SignUp (Response SignUp)
   :<|> "signin" :> SimplePost SignIn (WithCookieHeaders (Response SignIn)) 
-  :<|> AuthProtect "user" :> ("new-token" :> SimplePostWithHeaders (Response SignIn))
+  :<|> AuthProtect "user" :> AuthorizedAccountAPI
+  
+type AuthorizedAccountAPI
+    = "new-token" :> SimplePostWithHeaders (Response SignIn)
+ :<|> "change-password" :> SimplePost ChangePassword (Response ChangePassword)
+ :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername)
 
 type Ctx = AuthHandler Wai.Request User ': '[]
 
