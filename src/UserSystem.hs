@@ -1,7 +1,7 @@
 module UserSystem where
 
 import Control.Monad.Reader.Class
-import Control.Monad.Trans
+import Control.Monad.Reader
 import Data.Time.Clock
 import UserSystem.Database
 import UserSystem.Server
@@ -18,12 +18,12 @@ main = do
   getEnv "USER_SYSTEM_LOCATION" >>= setCurrentDirectory
   connInfo <- testInfo <$> getEffectiveUserName
   runDatabaseT connInfo do
-    conn <- ask
+    pool <- ask
     let app = serveWithContext 
                 freezeProxy 
-                (ctx conn) 
+                (ctx pool) 
                 (hoistServerWithContext freezeProxy ctxProxy
-                   (runSharedDatabaseT conn) 
+                   (flip (runReaderT . unDatabaseT) pool) 
                    server)
     let settings = setOnException exceptionPrinter $ setPort 8080 defaultSettings
     liftIO (runSettings settings $ logStdoutDev app)

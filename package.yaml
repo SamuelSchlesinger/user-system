@@ -24,6 +24,7 @@ library:
     - optparse-applicative
     - postgresql-simple
     - random
+    - resource-pool
     - servant-client
     - servant-client-core
     - servant-js
