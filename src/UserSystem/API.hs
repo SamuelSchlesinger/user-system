@@ -6,7 +6,6 @@ import Servant
 import Servant.Server.Experimental.Auth
 import UserSystem.API.Types
 import UserSystem.Ontology
-import Web.Cookie
 import qualified Network.Wai as Wai
 
 type UserSystemAPI
