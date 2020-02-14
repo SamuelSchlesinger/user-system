@@ -52,7 +52,7 @@ instance FromField Role where
     then case mb >>= roleFromByteString of
             Nothing -> error "failed to marshall role"
             Just ps -> pure ps
-    else error $ "expected type vm_action, but got " <> show n
+    else error $ "expected type role, but got " <> show n
     where
       roleFromByteString "Read" = Just Read
       roleFromByteString "Edit" = Just Edit
