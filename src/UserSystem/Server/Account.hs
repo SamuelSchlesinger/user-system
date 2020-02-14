@@ -21,7 +21,12 @@ account :: MonadUserSystem m => ServerT AccountAPI m
 account = signup :<|> signin :<|> authenticatedAccount
 
 authenticatedAccount :: MonadUserSystem m => ServerT AuthenticatedAccountAPI m
-authenticatedAccount user = newToken user :<|> changePassword user :<|> changeUsername user
+authenticatedAccount user 
+     = newToken user 
+  :<|> changePassword user 
+  :<|> changeUsername user 
+  :<|> createObject user 
+  :<|> editObject user
 
 signup :: MonadUserSystem m => SignUp -> m (Response SignUp)
 signup (SignUp username password) = do
@@ -83,5 +88,21 @@ changePassword User{userID} (ChangePassword newPassword) = do
 changeUsername :: MonadUserSystem m => User -> ChangeUsername -> m (Response ChangeUsername)
 changeUsername User{userID} (ChangeUsername newUsername) = do
   updateUsername userID newUsername >>= \case
-    True -> return ChangedUsername
-    False -> throwError err500
+    Nothing -> return ChangedUsername
+    Just NewUsernameTaken -> throwError err409
+    Just UserDoesntExist -> throwError err500
+
+createObject :: MonadUserSystem m => User -> CreateObject -> m (Response CreateObject)
+createObject User{userID} (CreateObject objectName (encodeUtf8 -> objectContents)) = do
+  objectID <- liftIO ((Key . toText) <$> randomIO)
+  objectCreationDate <- liftIO getCurrentTime
+  insertObject userID Object{..} >>= \case
+    True -> return CreatedObject
+    False -> throwError err409
+
+editObject :: MonadUserSystem m => User -> EditObject -> m (Response EditObject)
+editObject User{userID} (EditObject objectName (encodeUtf8 -> objectContents)) = 
+  updateObjectContents userID objectName objectContents >>= \case
+    Nothing -> return EditedObject
+    Just RoleViolation -> throwError err403
+    Just ObjectDoesntExist -> throwError err404

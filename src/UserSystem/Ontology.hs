@@ -1,6 +1,6 @@
 module UserSystem.Ontology where
 
-import Data.Aeson
+import Data.Aeson (ToJSON, FromJSON)
 import Data.Time
 import Data.Text
 import Data.ByteString
@@ -35,3 +35,51 @@ data ExecutedMigration = ExecutedMigration
   , executedMigrationTimestamp :: UTCTime
   } deriving stock (Generic, Eq, Show, Read, Ord)
     deriving anyclass (FromRow, ToRow, ToJSON, FromJSON)
+
+data Role = Read | Edit | Collaborator | Owner
+  deriving stock (Generic, Eq, Show, Read, Ord)
+
+instance ToField Role where
+  toField Read = Escape "Read"
+  toField Edit = Escape "Edit"
+  toField Collaborator = Escape "Collaborator"
+  toField Owner = Escape "Owner"
+  
+instance FromField Role where
+  fromField f mb = do
+    n <- typename f
+    if n == "role"
+    then case mb >>= roleFromByteString of
+            Nothing -> error "failed to marshall role"
+            Just ps -> pure ps
+    else error $ "expected type vm_action, but got " <> show n
+    where
+      roleFromByteString "Read" = Just Read
+      roleFromByteString "Edit" = Just Edit
+      roleFromByteString "Collaborator" = Just Collaborator
+      roleFromByteString "Owner" = Just Owner
+      roleFromByteString _ = Nothing
+
+data Object = Object
+  { objectID :: Key Object
+  , objectName :: Text
+  , objectContents :: ByteString
+  , objectCreationDate :: UTCTime
+  } deriving stock (Generic, Eq, Show, Read, Ord)
+    deriving anyclass (FromRow, ToRow)
+
+data SessionRole = SessionRole
+  { sessionRoleSession :: Key Session
+  , sessionRole :: Role
+  , sessionRoleObject :: Key Object
+  , sessionRoleCreationDate :: UTCTime
+  } deriving stock (Generic, Eq, Show, Read, Ord)
+    deriving anyclass (FromRow, ToRow)
+
+data UserRole = UserRole
+  { userRoleUser :: Key User
+  , userRole :: Key Role
+  , userRoleObject :: Key Object
+  , userRoleCreationDate :: UTCTime
+  } deriving stock (Generic, Eq, Show, Read, Ord)
+    deriving anyclass (FromRow, ToRow)

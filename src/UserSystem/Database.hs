@@ -42,6 +42,7 @@ instance (MonadError e m, MonadCatch m, Exception e) => MonadError e (DatabaseT 
 
 class MonadIO m => MonadDatabase m where
   withConnection :: (Connection -> m a) -> m a
+  inTransaction :: IO a -> m a
 
 instance (MonadMask m, MonadIO m) => MonadDatabase (DatabaseT m) where
   withConnection a = do
@@ -51,8 +52,9 @@ instance (MonadMask m, MonadIO m) => MonadDatabase (DatabaseT m) where
       ret <- restore (a resource) `catch` throwM @_ @SomeException
       liftIO $ putResource localPool resource
       return ret
+  inTransaction a = do
+    withConnection \c -> liftIO $ withTransaction c a
     
-
 insertUsers :: MonadDatabase m => [User] -> m ()
 insertUsers users = withConnection \c -> do
   void . liftIO $ executeMany c [sql|
@@ -73,19 +75,45 @@ updateUserPasshash user passhash = withConnection \c -> do
     [] -> return False
     (_ : _) -> error "We have more than one user associated with this key"
 
-updateUsername :: MonadDatabase m => Key User -> Text -> m Bool
-updateUsername user username = withConnection \c -> do
-  lookupUsers [user] >>= \case
-    [_] -> do
-      void . liftIO $ execute c [sql|
-        update users
-        set username = ?
-        where users.id = ?;
-      |] (username, user)
-      return True
-    [] -> return False
-    (_ : _) -> error "We have more than one user associated with this key"
-    
+data UpdateUsernameError = NewUsernameTaken | UserDoesntExist
+
+updateUsername :: (MonadReader (Pool Connection) m, MonadDatabase m) => Key User -> Text -> m (Maybe UpdateUsernameError)
+updateUsername userID username = do
+  pool <- ask
+  liftIO $ withResource pool \c ->
+    withTransaction c $ flip runReaderT pool $ unDatabaseT $ do
+      lookupUsers [userID] >>= \case
+        [user] -> lookupUsersByUsername [username] >>= \case
+            [user'] -> if user' == user then pure Nothing else return $ Just NewUsernameTaken
+            (_ : _) -> error "We have more than one user associated with this key"
+            [] -> do
+              void . liftIO $ execute c [sql|
+                update users
+                set username = ?
+                where users.id = ?;
+              |] (username, userID)
+              return Nothing
+        [] -> return $ Just UserDoesntExist
+        (_ : _) -> error "We have more than one user associated with this key"
+
+updateObjectContents :: MonadDatabase m => Key User -> Key Object -> ByteString -> m (Maybe UpdateUsernameError)
+updateObjectContents userID objectID contents = do
+  pool <- ask
+  liftIO $ withResource pool \c ->
+    withTransaction c $ flip runReaderT pool $ unDatabaseT $ do
+      lookupUsers [userID] >>= \case
+        [user] -> lookupUsersByUsername [username] >>= \case
+            [user'] -> if user' == user then pure Nothing else return $ Just NewUsernameTaken
+            (_ : _) -> error "We have more than one user associated with this key"
+            [] -> do
+              void . liftIO $ execute c [sql|
+                update users
+                set username = ?
+                where users.id = ?;
+              |] (username, userID)
+              return Nothing
+        [] -> return $ Just UserDoesntExist
+
 
 insertSessions :: MonadDatabase m => [Session] -> m ()
 insertSessions sessions = withConnection \c -> do
@@ -93,6 +121,53 @@ insertSessions sessions = withConnection \c -> do
     insert into sessions (id, owner, creation_date, token)
     values (?, ?, ?, ?);
     |] sessions
+
+insertObject :: MonadDatabase m => Key User -> Object -> m Bool
+insertObject creator Object{..} = withConnection \c -> liftIO . withTransaction c $ do
+  lookupObjectsByName c [objectName] >>= \case
+    [_] -> return False
+    (_ : _) -> error "multiple objects exist for a single key"
+    [] -> do
+      void $ execute c [sql|
+        insert into objects (id, name, contents, creation_date)
+        values (?, ?, ?, ?); 
+        insert into user_roles (user_, role, object, creation_date)
+        values (?, ?, ?, ?);
+      |] (objectID, objectName, objectContents, objectCreationDate, creator, Owner, objectID, objectCreationDate)
+      return True
+
+maxPermissionLevelConn :: Connection -> Key User -> Key Object -> IO (Maybe Role)
+maxPermissionLevelConn c userID objectID = do
+  userRoles <- fmap (fmap fromOnly) $ query c [sql| 
+      select role from user_roles where user_ = ? and object = ?;
+    |] (userID, objectID)
+  sessionRoles <- fmap (fmap fromOnly) $ query c [sql|
+      select role from session_roles 
+      inner join sessions on sessions.owner = ? 
+      where session_roles.session = sessions.id
+        and session_roles.object = ?;
+    |] (userID, objectID)
+  return (aggregateRoles $ userRoles <> sessionRoles)
+  where
+    aggregateRoles :: [Role] -> Maybe Role
+    aggregateRoles = go Nothing where
+      go x [] = x
+      go Nothing (role : roles) = go (Just role) roles
+      go (Just role') (role : roles) = go (Just (max role role')) roles
+
+maxPermissionLevel :: MonadDatabase m => Key User -> Key Object -> m (Maybe Role)
+maxPermissionLevel userID objectID = do
+  lookupObjects [objectID] >>= \case
+    [] -> return Nothing
+    (_ : _ : _) -> error "multiple objects exist in the database with the same ID"
+    [_] -> do
+      withConnection \c -> liftIO $ maxPermissionLevelConn c userID objectID
+
+lookupObjects :: MonadDatabase m => [Key Object] -> m [Object]
+lookupObjects objects = withConnection \c -> do
+  liftIO $ query c [sql|
+    select * from objects where id in ?;
+    |] (Only (In objects))
 
 insertExecutedMigrations :: MonadDatabase m => [ExecutedMigration] -> m ()
 insertExecutedMigrations executedMigrations = withConnection \c -> do
@@ -133,6 +208,12 @@ lookupUsersByUsername usernames = withConnection \c -> do
   liftIO $ query c [sql|
      select * from users where username in ?;
     |] (Only (In usernames))
+
+lookupObjectsByName :: Connection -> [Text] -> IO [Object]
+lookupObjectsByName c names = do
+  query c [sql|
+    select * from objects where name in ?;
+    |] (Only (In names))
 
 lookupExecutedMigrations :: MonadDatabase m => [FilePath] -> m [ExecutedMigration]
 lookupExecutedMigrations names = withConnection \c -> do

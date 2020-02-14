@@ -1,3 +1,5 @@
 executed_migrations.sql
 users.sql
 sessions.sql
+objects.sql
+roles.sql
