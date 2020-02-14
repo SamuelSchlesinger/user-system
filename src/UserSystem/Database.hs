@@ -10,6 +10,7 @@ import Control.Monad.Trans.Reader (ReaderT(..))
 import Data.ByteString (ByteString)
 import Data.Pool
 import Data.Text (Text)
+import Data.Text.Encoding (decodeUtf8)
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.SqlQQ
 import UserSystem.Ontology
@@ -75,15 +76,15 @@ updateUserPasshash user passhash = withConnection \c -> do
     [] -> return False
     (_ : _) -> error "We have more than one user associated with this key"
 
-data UpdateUsernameError = NewUsernameTaken | UserDoesntExist
+data UpdateUsernameError = NewUsernameTaken
 
 updateUsername :: (MonadReader (Pool Connection) m, MonadDatabase m) => Key User -> Text -> m (Maybe UpdateUsernameError)
-updateUsername userID username = do
+updateUsername userID newUsername = do
   pool <- ask
   liftIO $ withResource pool \c ->
-    withTransaction c $ flip runReaderT pool $ unDatabaseT $ do
-      lookupUsers [userID] >>= \case
-        [user] -> lookupUsersByUsername [username] >>= \case
+    withTransaction c $ do
+      lookupUsersConn c [userID] >>= \case
+        [user] -> lookupUsersByUsernameConn c [newUsername] >>= \case
             [user'] -> if user' == user then pure Nothing else return $ Just NewUsernameTaken
             (_ : _) -> error "We have more than one user associated with this key"
             [] -> do
@@ -91,28 +92,47 @@ updateUsername userID username = do
                 update users
                 set username = ?
                 where users.id = ?;
-              |] (username, userID)
+              |] (newUsername, userID)
               return Nothing
-        [] -> return $ Just UserDoesntExist
+        [] -> error "User doesn't exist"
         (_ : _) -> error "We have more than one user associated with this key"
 
-updateObjectContents :: MonadDatabase m => Key User -> Key Object -> ByteString -> m (Maybe UpdateUsernameError)
-updateObjectContents userID objectID contents = do
-  pool <- ask
-  liftIO $ withResource pool \c ->
-    withTransaction c $ flip runReaderT pool $ unDatabaseT $ do
-      lookupUsers [userID] >>= \case
-        [user] -> lookupUsersByUsername [username] >>= \case
-            [user'] -> if user' == user then pure Nothing else return $ Just NewUsernameTaken
-            (_ : _) -> error "We have more than one user associated with this key"
-            [] -> do
-              void . liftIO $ execute c [sql|
-                update users
-                set username = ?
-                where users.id = ?;
-              |] (username, userID)
-              return Nothing
-        [] -> return $ Just UserDoesntExist
+data UpdateObjectError = ObjectDoesntExist | RoleViolation
+
+updateObjectContents :: MonadDatabase m => Key User -> Text -> ByteString -> m (Maybe UpdateObjectError)
+updateObjectContents userID objectName contents = withConnection \c -> liftIO $ withTransaction c $
+  lookupObjectsByNameConn c [objectName] >>= \case
+    [Object{objectID}] -> do
+      maxPermissionLevelConn c userID objectID >>= \case
+        Just role -> if role >= Edit then
+          Nothing <$ void (execute c [sql|
+            update objects
+            set contents = ?
+            where objects.name = ?;
+            |] (objectName, contents))
+          else
+            return $ Just RoleViolation
+        Nothing -> return $ Just RoleViolation
+      return Nothing
+    [] -> return $ Just ObjectDoesntExist
+    (_ : _) -> error "multiple objects associated with the same key"
+
+data ReadObjectError = AuthError | ReadObjectDoesntExist | ReadRoleViolation
+
+authedLookupObject :: MonadDatabase m => Key User -> Text -> m (Either ReadObjectError Text)
+authedLookupObject userID objectName = withConnection \c -> liftIO $ withTransaction c $
+  lookupObjectsByNameConn c [objectName] >>= \case
+    [Object{objectID, objectContents}] -> do
+      maxPermissionLevelConn c userID objectID >>= \case
+        Just role -> 
+          if role >= Read then 
+            return $ Right (decodeUtf8 objectContents)
+          else
+          return $ Left ReadRoleViolation
+        Nothing -> return $ Left ReadRoleViolation
+    [] -> return $ Left ReadObjectDoesntExist
+    (_ : _) -> error "multiple objects associated with the same key"
+
 
 
 insertSessions :: MonadDatabase m => [Session] -> m ()
@@ -124,7 +144,7 @@ insertSessions sessions = withConnection \c -> do
 
 insertObject :: MonadDatabase m => Key User -> Object -> m Bool
 insertObject creator Object{..} = withConnection \c -> liftIO . withTransaction c $ do
-  lookupObjectsByName c [objectName] >>= \case
+  lookupObjectsByNameConn c [objectName] >>= \case
     [_] -> return False
     (_ : _) -> error "multiple objects exist for a single key"
     [] -> do
@@ -197,11 +217,20 @@ validateToken token = withConnection \c -> do
         return (Just s)
       _ -> error "database has two sessions with the same token" 
       
-lookupUsers :: MonadDatabase m => [Key User] -> m [User]
-lookupUsers users = withConnection \c -> do
+lookupUsersConn :: Connection -> [Key User] -> IO [User]
+lookupUsersConn c users = do
   liftIO $ query c [sql|
      select * from users where id in ?;
     |] (Only (In users))
+
+lookupUsers :: MonadDatabase m => [Key User] -> m [User]
+lookupUsers users = withConnection \c -> liftIO $ lookupUsersConn c users
+
+lookupUsersByUsernameConn :: Connection -> [Text] -> IO [User]
+lookupUsersByUsernameConn c usernames = do
+  query c [sql|
+     select * from users where username in ?;
+    |] (Only (In usernames))
 
 lookupUsersByUsername :: MonadDatabase m => [Text] -> m [User]
 lookupUsersByUsername usernames = withConnection \c -> do
@@ -209,8 +238,14 @@ lookupUsersByUsername usernames = withConnection \c -> do
      select * from users where username in ?;
     |] (Only (In usernames))
 
-lookupObjectsByName :: Connection -> [Text] -> IO [Object]
-lookupObjectsByName c names = do
+lookupObjectsByName :: MonadDatabase m => [Text] -> m [Object]
+lookupObjectsByName names = withConnection \c -> do
+  liftIO $ query c [sql|
+    select * from objects where name in ?;
+    |] (Only (In names))
+
+lookupObjectsByNameConn :: Connection -> [Text] -> IO [Object]
+lookupObjectsByNameConn c names = do
   query c [sql|
     select * from objects where name in ?;
     |] (Only (In names))

@@ -27,6 +27,15 @@ authenticatedAccount user
   :<|> changeUsername user 
   :<|> createObject user 
   :<|> editObject user
+  :<|> readObject user
+
+readObject :: MonadUserSystem m => User -> ReadObject -> m (Response ReadObject)
+readObject User{userID} (ReadObject objectName) = do
+  authedLookupObject userID objectName >>= \case
+    Left AuthError -> throwError err403
+    Left ReadObjectDoesntExist -> throwError err404
+    Left ReadRoleViolation -> throwError err403
+    Right blob -> return $ ReadObjectResponse objectName blob
 
 signup :: MonadUserSystem m => SignUp -> m (Response SignUp)
 signup (SignUp username password) = do
@@ -90,7 +99,6 @@ changeUsername User{userID} (ChangeUsername newUsername) = do
   updateUsername userID newUsername >>= \case
     Nothing -> return ChangedUsername
     Just NewUsernameTaken -> throwError err409
-    Just UserDoesntExist -> throwError err500
 
 createObject :: MonadUserSystem m => User -> CreateObject -> m (Response CreateObject)
 createObject User{userID} (CreateObject objectName (encodeUtf8 -> objectContents)) = do

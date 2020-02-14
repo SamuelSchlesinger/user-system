@@ -35,6 +35,7 @@ type AuthenticatedAccountAPI
  :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername)
  :<|> "create-object" :> SimplePost CreateObject (Response CreateObject)
  :<|> "edit-object" :> SimplePost EditObject (Response EditObject)
+ :<|> "read-object" :> SimplePost ReadObject (Response ReadObject)
      )
 
 type Ctx = AuthHandler Wai.Request User ': '[]

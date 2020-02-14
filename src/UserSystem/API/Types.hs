@@ -67,3 +67,14 @@ data EditObject = EditObject
 data instance Response EditObject = EditedObject
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+newtype ReadObject = ReadObject
+  { readObjectName :: Text }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
+
+data instance Response ReadObject = ReadObjectResponse
+  { readObjectResponseName :: Text
+  , readObjectResponseContent :: Text }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON)
