@@ -8,6 +8,7 @@ import Control.Monad.Except
 import Control.Monad.Reader.Class
 import Control.Monad.Trans.Reader (ReaderT(..))
 import Data.ByteString (ByteString)
+import Data.Maybe (listToMaybe)
 import Data.Pool
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8)
@@ -97,9 +98,9 @@ updateUsername userID newUsername = do
         [] -> error "User doesn't exist"
         (_ : _) -> error "We have more than one user associated with this key"
 
-data UpdateObjectError = ObjectDoesntExist | RoleViolation
+data ObjectAccessError = ObjectDoesntExist | RoleViolation | UserDoesntExist
 
-updateObjectContents :: MonadDatabase m => Key User -> Text -> ByteString -> m (Maybe UpdateObjectError)
+updateObjectContents :: MonadDatabase m => Key User -> Text -> ByteString -> m (Maybe ObjectAccessError)
 updateObjectContents userID objectName contents = withConnection \c -> liftIO $ withTransaction c $
   lookupObjectsByNameConn c [objectName] >>= \case
     [Object{objectID}] -> do
@@ -117,23 +118,19 @@ updateObjectContents userID objectName contents = withConnection \c -> liftIO $ 
     [] -> return $ Just ObjectDoesntExist
     (_ : _) -> error "multiple objects associated with the same key"
 
-data ReadObjectError = AuthError | ReadObjectDoesntExist | ReadRoleViolation
-
-authedLookupObject :: MonadDatabase m => Key User -> Text -> m (Either ReadObjectError Text)
+authedLookupObject :: MonadDatabase m => Key User -> Text -> m (Either ObjectAccessError Text)
 authedLookupObject userID objectName = withConnection \c -> liftIO $ withTransaction c $
   lookupObjectsByNameConn c [objectName] >>= \case
     [Object{objectID, objectContents}] -> do
       maxPermissionLevelConn c userID objectID >>= \case
-        Just role -> 
-          if role >= Read then 
+        Just role ->
+          if role >= Read then
             return $ Right (decodeUtf8 objectContents)
           else
-          return $ Left ReadRoleViolation
-        Nothing -> return $ Left ReadRoleViolation
-    [] -> return $ Left ReadObjectDoesntExist
+            return $ Left RoleViolation
+        Nothing -> return $ Left RoleViolation
+    [] -> return $ Left ObjectDoesntExist
     (_ : _) -> error "multiple objects associated with the same key"
-
-
 
 insertSessions :: MonadDatabase m => [Session] -> m ()
 insertSessions sessions = withConnection \c -> do
@@ -265,3 +262,33 @@ deleteUsers users = withConnection \c -> do
 withTestUsers :: (MonadDatabase m, MonadMask m) => [User] -> ([Key User] -> m a) -> m a
 withTestUsers users dbGo = bracket (insertUsers users) (const . void $ deleteUsers userKeys) (const $ dbGo userKeys) where
   userKeys = map userID users
+
+updateUserRole :: MonadDatabase m => Key User -> Text -> Text -> Role -> m (Maybe ObjectAccessError)
+updateUserRole userID username objectName role = withConnection \c -> liftIO $ withTransaction c $ do
+  lookupObjectsByNameConn c [objectName] >>= \case
+    [Object{objectID}] -> do
+      lookupUsersByUsernameConn c [username] >>= \case
+        [User userID' _ _ _] -> do
+          perm <- maxPermissionLevelConn c userID objectID
+          if (perm == Just Collaborator && role < Collaborator
+           || perm >= Just Owner        && role < Owner) then do
+            userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql| 
+                select role from user_roles 
+                inner join objects on objects.name = ?
+                where user_ = ? and object = objects.id;
+              |] (userID, objectName)
+            case userRole of
+              Nothing -> Nothing <$ void (execute c [sql|
+                  insert into user_roles (user_, role, object, creation_date)
+                  values (?, ?, ?, now());
+                |] (userID', role, objectID))
+              Just _ -> Nothing <$ void (execute c [sql|
+                  update user_roles
+                  set role = ?
+                  where user_ = ? and object = ?;
+                |] (role, userID', objectID))
+          else return $ Just RoleViolation
+        [] -> return $ Just UserDoesntExist
+        (_ : _) -> error "multiple users with the same username exist"
+    [] -> return $ Just ObjectDoesntExist
+    (_ : _) -> error "multiple objects exist with the same ID"

@@ -12,23 +12,26 @@ type UserSystemAPI
      = "account" :> AccountAPI 
   :<|> Raw
 
-type SimplePost req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] res
+type SimpleReqRes req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] res
 
-type SimplePostWithHeaders res = Post '[JSON] (WithCookieHeaders res)
+type SimpleResWithHeaders res = Post '[JSON] (WithCookieHeaders res)
+
+type SimpleReq req = SimpleReqRes req (Response req)
 
 type AccountAPI
-     = "signup" :> SimplePost SignUp (Response SignUp)
-  :<|> "signin" :> SimplePost SignIn (WithCookieHeaders (Response SignIn)) 
+     = "signup" :> SimpleReqRes SignUp (Response SignUp)
+  :<|> "signin" :> SimpleReqRes SignIn (WithCookieHeaders (Response SignIn)) 
   :<|> AuthenticatedAccountAPI
   
 type AuthenticatedAccountAPI
     = AuthProtect "user" :> 
-     ( "new-token" :> SimplePostWithHeaders (Response SignIn)
- :<|> "change-password" :> SimplePost ChangePassword (Response ChangePassword)
- :<|> "change-username" :> SimplePost ChangeUsername (Response ChangeUsername)
- :<|> "create-object" :> SimplePost CreateObject (Response CreateObject)
- :<|> "edit-object" :> SimplePost EditObject (Response EditObject)
- :<|> "read-object" :> SimplePost ReadObject (Response ReadObject)
+     ( "new-token" :> SimpleResWithHeaders (Response SignIn)
+ :<|> "change-password" :> SimpleReqRes ChangePassword (Response ChangePassword)
+ :<|> "change-username" :> SimpleReqRes ChangeUsername (Response ChangeUsername)
+ :<|> "create-object" :> SimpleReqRes CreateObject (Response CreateObject)
+ :<|> "edit-object" :> SimpleReqRes EditObject (Response EditObject)
+ :<|> "read-object" :> SimpleReqRes ReadObject (Response ReadObject)
+ :<|> "give-user-role" :> SimpleReqRes GiveUserRole (Response GiveUserRole)
      )
 
 type Ctx = AuthHandler Wai.Request User ': '[]

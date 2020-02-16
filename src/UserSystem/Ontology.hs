@@ -3,12 +3,13 @@ module UserSystem.Ontology where
 import Data.Aeson (ToJSON, FromJSON)
 import Data.Time
 import Data.Text
-import Data.ByteString
+import Data.ByteString hiding (pack, unpack)
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.FromField
 import Database.PostgreSQL.Simple.ToField
 import GHC.Generics
 import Servant
+import Text.Read (readMaybe)
 
 newtype Key a = Key { unKey :: Text }
   deriving stock (Generic)
@@ -38,6 +39,15 @@ data ExecutedMigration = ExecutedMigration
 
 data Role = Read | Edit | Collaborator | Owner
   deriving stock (Generic, Eq, Show, Read, Ord)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance FromHttpApiData Role where
+  parseUrlPiece = maybeToEither . readMaybe . unpack where
+    maybeToEither (Just a) = Right a
+    maybeToEither Nothing = Left "Could not parse Role"
+
+instance ToHttpApiData Role where
+  toUrlPiece = pack . show
 
 instance ToField Role where
   toField Read = Escape "Read"
