@@ -18,8 +18,8 @@ stack run drop; stack run migrate; stack run user-system
 
 then I go to `localhost:8080/signup.html`, `localhost:8080/signin.html`, and then test
 whatever endpoints I want in whatever sequence is required to test the behavior I want.
-It would be nice to design these pages in a way that doesn't require this, but at the moment,
-you will be directed to the JSON response instead of to another useful page, and you will
+It would be nice to design these pages in a way that doesn't require this but, at the moment,
+you will be directed to the JSON response instead of to another useful page and you will
 have to input the next URL to take your next action. I could make this easier by implementing
 an html interface as a part of the response of the various endpoints, but this would clutter
 the code, the purpose of which isn't to be used but to help me learn.
