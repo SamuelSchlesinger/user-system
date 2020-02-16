@@ -10,6 +10,7 @@ import qualified Network.Wai as Wai
 
 type UserSystemAPI
      = "account" :> AccountAPI 
+  :<|> "object" :> ObjectAPI
   :<|> Raw
 
 type SimpleReqRes req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] res
@@ -25,14 +26,18 @@ type AccountAPI
   
 type AuthenticatedAccountAPI
     = AuthProtect "user" :> 
-     ( "new-token" :> SimpleResWithHeaders (Response SignIn)
+    ( "new-token" :> SimpleResWithHeaders (Response SignIn)
  :<|> "change-password" :> SimpleReqRes ChangePassword (Response ChangePassword)
  :<|> "change-username" :> SimpleReqRes ChangeUsername (Response ChangeUsername)
- :<|> "create-object" :> SimpleReqRes CreateObject (Response CreateObject)
+    )
+
+type ObjectAPI
+    = AuthProtect "user" :> 
+    ( "create-object" :> SimpleReqRes CreateObject (Response CreateObject)
  :<|> "edit-object" :> SimpleReqRes EditObject (Response EditObject)
  :<|> "read-object" :> SimpleReqRes ReadObject (Response ReadObject)
  :<|> "give-user-role" :> SimpleReqRes GiveUserRole (Response GiveUserRole)
-     )
+    )
 
 type Ctx = AuthHandler Wai.Request User ': '[]
 

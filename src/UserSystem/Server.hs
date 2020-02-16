@@ -11,6 +11,7 @@ import UserSystem.Database
 import UserSystem.Monad
 import UserSystem.Ontology
 import UserSystem.Server.Account
+import UserSystem.Server.Object
 import Web.Cookie
 import qualified Network.Wai as Wai
 
@@ -36,7 +37,7 @@ authenticateRequest pool req = do
     return =<< (runReaderT . unDatabaseT) (validateToken token) pool
 
 server :: MonadUserSystem m => ServerT UserSystemAPI m
-server = account :<|> serveDirectoryWebApp "static"
+server = account :<|> object :<|> serveDirectoryWebApp "static"
 
 account :: MonadUserSystem m => ServerT AccountAPI m
 account = signup :<|> signin :<|> authenticatedAccount
@@ -46,7 +47,10 @@ authenticatedAccount user
      = newToken user 
   :<|> changePassword user 
   :<|> changeUsername user 
-  :<|> createObject user 
+
+object :: MonadUserSystem m => ServerT ObjectAPI m
+object user
+     = createObject user 
   :<|> editObject user
   :<|> readObject user
   :<|> giveUserRole user
