@@ -6,6 +6,7 @@ import GHC.Generics (Generic)
 import Web.FormUrlEncoded
 import Servant
 import Web.Cookie
+import UserSystem.Ontology (Role)
 
 type WithCookieHeaders res
    = Headers '[ Header "Set-Cookie" SetCookie
@@ -84,5 +85,16 @@ newtype ReadObject = ReadObject
 data instance Response ReadObject = ReadObjectResponse
   { readObjectResponseName :: Text
   , readObjectResponseContent :: Text }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
+data GiveUserRole = GiveUserRole
+  { giveUserRoleUsername :: Text
+  , giveUserRoleObject :: Text
+  , giveUserRoleRole :: Role }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON, FromForm, ToForm)
+
+data instance Response GiveUserRole = GaveUserRole
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)

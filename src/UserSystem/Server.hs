@@ -49,3 +49,4 @@ authenticatedAccount user
   :<|> createObject user 
   :<|> editObject user
   :<|> readObject user
+  :<|> giveUserRole user

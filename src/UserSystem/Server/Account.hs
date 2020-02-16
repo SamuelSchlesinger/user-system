@@ -19,9 +19,9 @@ import UserSystem.API.Types
 readObject :: MonadUserSystem m => User -> ReadObject -> m (Response ReadObject)
 readObject User{userID} (ReadObject objectName) = do
   authedLookupObject userID objectName >>= \case
-    Left AuthError -> throwError err403
-    Left ReadObjectDoesntExist -> throwError err404
-    Left ReadRoleViolation -> throwError err403
+    Left ObjectDoesntExist -> throwError err404
+    Left RoleViolation -> throwError err403
+    Left UserDoesntExist -> throwError err404
     Right blob -> return $ ReadObjectResponse objectName blob
 
 signup :: MonadUserSystem m => SignUp -> m (Response SignUp)
@@ -101,3 +101,12 @@ editObject User{userID} (EditObject objectName (encodeUtf8 -> objectContents)) =
     Nothing -> return EditedObject
     Just RoleViolation -> throwError err403
     Just ObjectDoesntExist -> throwError err404
+    Just UserDoesntExist -> throwError err404
+
+giveUserRole :: MonadUserSystem m => User -> GiveUserRole -> m (Response GiveUserRole)
+giveUserRole User{userID} (GiveUserRole{..}) = do
+  updateUserRole userID giveUserRoleUsername giveUserRoleObject giveUserRoleRole >>= \case
+    Nothing -> return GaveUserRole
+    Just RoleViolation -> throwError err403
+    Just ObjectDoesntExist -> throwError err404
+    Just UserDoesntExist -> throwError err404
