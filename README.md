@@ -1,7 +1,7 @@
 # User System
 
 A basic user system with objects and roles at the user and session level, with 
-sessions stored in the database hashed with bcrypt. Useful for branching off of for 
+sessions stored in the database and passwords hashed with bcrypt. Useful for branching off of for 
 other projects, kept tearing it out of old ones so I figured I'd give it a home.
 
 ## Technical Discussion
