@@ -3,16 +3,40 @@
 module Main where
 
 import Control.Lens
-import Data.Proxy
-import Data.Text (Text, pack)
+  ( (&)
+  , (%~) )
+import Data.Text
+  ( Text
+  , pack )
 import Data.Time.Clock
-import Data.Void
+  ( UTCTime )
 import UserSystem.API.Types
+  ( Response
+  , SignIn(..)
+  , SignUp(..)
+  , ChangeUsername(..)
+  , EditObject(..)
+  , CreateObject(..)
+  , ChangePassword(..)
+  , ReadObject(..)
+  , GiveUserRole(..) )
 import UserSystem.API
+  ( UserSystemAPI )
 import UserSystem.Ontology
+  ( Key(..)
+  , User(..) )
 import Servant
-import Servant.Docs hiding (Response)
-import Web.Cookie (SetCookie)
+  ( AuthProtect, Proxy(Proxy), (:>) )
+import Servant.Docs
+  ( ToSample(..)
+  , HasDocs(..)
+  , DocAuthentication
+  , authInfo
+  , DocAuthentication(..)
+  , markdown
+  , docs )
+import Web.Cookie
+  ( SetCookie )
 
 instance ToSample ()
 instance ToSample (Key User) where toSamples _ = [("Sam's username", Key "samuel")]

@@ -1,11 +1,19 @@
 module Main where
 
 import Control.Monad
+  ( void )
 import Control.Monad.Trans
+  ( MonadIO(liftIO) )
 import Database.PostgreSQL.Simple
+  ( execute_ )
 import Database.PostgreSQL.Simple.SqlQQ
+  ( sql )
 import UserSystem.Database
+  ( MonadDatabase(withConnection) 
+  , runDatabaseT 
+  , testInfo )
 import System.Posix.User
+  ( getEffectiveUserName )
 
 main :: IO ()
 main = do
