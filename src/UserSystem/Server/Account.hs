@@ -21,7 +21,7 @@ signup (SignUp username password) = do
   lookupUsersByUsername [username] >>= \case
     [] -> do
       userCreationDate <- liftIO getCurrentTime
-      userID <- liftIO ((Key . toText) <$> randomIO)
+      userID <- freshKey
       passhash <- hashPassword password
       insertUsers [User {..}]
       return SignedUp
@@ -37,7 +37,7 @@ createSession sessionOwner = do
   sessionCreationDate <- liftIO getCurrentTime
   let sessionExpirationDate = addUTCTime (60 * 60) sessionCreationDate
   sessionToken <- liftIO (toText <$> randomIO)
-  sessionID <- liftIO ((Key . toText) <$> randomIO)
+  sessionID <- freshKey
   let sess = Session {..}
   insertSessions [sess]
   return $

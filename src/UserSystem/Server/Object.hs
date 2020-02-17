@@ -3,12 +3,10 @@ module UserSystem.Server.Object where
 import Control.Monad.Except
 import Data.Text.Encoding
 import Data.Time.Clock
-import Data.UUID
 import UserSystem.Database
 import UserSystem.Ontology
 import UserSystem.Monad
 import Servant
-import System.Random
 import UserSystem.API.Types
 
 readObject :: MonadUserSystem m => User -> ReadObject -> m (Response ReadObject)
@@ -22,7 +20,7 @@ readObject User{userID} (ReadObject objectName) = do
 
 createObject :: MonadUserSystem m => User -> CreateObject -> m (Response CreateObject)
 createObject User{userID} (CreateObject objectName (encodeUtf8 -> objectContents)) = do
-  objectID <- liftIO ((Key . toText) <$> randomIO)
+  objectID <- freshKey
   objectCreationDate <- liftIO getCurrentTime
   insertObject userID Object{..} >>= \case
     True -> return CreatedObject

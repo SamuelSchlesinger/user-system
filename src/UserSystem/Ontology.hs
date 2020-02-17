@@ -1,20 +1,26 @@
 module UserSystem.Ontology where
 
+import Control.Monad.IO.Class
 import Data.Aeson (ToJSON, FromJSON)
-import Data.Time
-import Data.Text
 import Data.ByteString hiding (pack, unpack)
+import Data.Text
+import Data.Time
+import Data.Typeable
+import Data.UUID
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.FromField
 import Database.PostgreSQL.Simple.ToField
 import GHC.Generics
 import Servant
+import System.Random
 import Text.Read (readMaybe)
-import Data.Typeable
 
 newtype Key a = Key { unKey :: Text }
   deriving stock (Generic, Typeable)
   deriving newtype (ToHttpApiData, FromHttpApiData, Eq, Show, Read, Ord, FromField, ToField, ToJSON, FromJSON)
+
+freshKey :: MonadIO m => m (Key a) 
+freshKey = liftIO ((Key . toText) <$> randomIO)
 
 data Session = Session
   { sessionID :: Key Session

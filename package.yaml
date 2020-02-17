@@ -48,6 +48,19 @@ executables:
     dependencies:
       - user-system
     <<: *executable
+  give-session-role:
+    main: 'app/GiveSessionRole.hs'
+    dependencies:
+      - base
+      - exceptions
+      - user-system
+      - mtl
+      - postgresql-simple
+      - text
+      - time
+      - transformers
+      - unix
+    <<: *executable
   drop:
     main: 'app/Drop.hs'
     dependencies:
