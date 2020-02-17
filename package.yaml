@@ -44,12 +44,12 @@ library:
 
 executables:
   user-system:
-    main: 'app/Entry.hs'
+    main: 'app/user-system.hs'
     dependencies:
       - user-system
     <<: *executable
   give-session-role:
-    main: 'app/GiveSessionRole.hs'
+    main: 'app/give-session-role.hs'
     dependencies:
       - base
       - exceptions
@@ -62,7 +62,7 @@ executables:
       - unix
     <<: *executable
   drop:
-    main: 'app/Drop.hs'
+    main: 'app/drop.hs'
     dependencies:
       - base
       - exceptions
@@ -74,7 +74,7 @@ executables:
       - unix
     <<: *executable
   migrate:
-    main: 'app/Migrate.hs'
+    main: 'app/migrate.hs'
     dependencies:
       - base
       - exceptions
@@ -86,7 +86,7 @@ executables:
       - unix
     <<: *executable
   docs:
-    main: 'app/Docs.hs'
+    main: 'app/docs.hs'
     dependencies:
       - base
       - bytestring
