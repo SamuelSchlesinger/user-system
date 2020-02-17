@@ -1,14 +1,28 @@
 module UserSystem.Server.Account where
 
 import Control.Monad.Except
+  ( MonadIO(liftIO) )
 import Data.Text
+  ( Text )
 import Data.ByteString
+  ( ByteString )
 import Data.Text.Encoding
+  ( encodeUtf8 )
 import Data.Time.Clock
+  ( addUTCTime
+  , getCurrentTime )
 import qualified Crypto.BCrypt as BCrypt
-import Crypto.BCrypt (validatePassword)
+import Crypto.BCrypt
+  ( validatePassword )
 import Data.UUID
+  ( toText )
 import UserSystem.Database
+  ( UpdateUsernameError(NewUsernameTaken)
+  , lookupUsersByUsername
+  , insertUsers
+  , insertSessions
+  , updateUserPasshash 
+  , updateUsername )
 import UserSystem.Ontology
 import UserSystem.Monad
 import Servant

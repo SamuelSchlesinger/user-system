@@ -1,12 +1,19 @@
 module UserSystem.API.Types where
 
-import Data.Aeson
+import Data.Aeson 
+  ( FromJSON, ToJSON )
 import Data.Text
-import GHC.Generics (Generic)
+  ( Text )
+import GHC.Generics 
+  ( Generic )
 import Web.FormUrlEncoded
+  ( ToForm, FromForm )
 import Servant
+  ( Headers, Header )
 import Web.Cookie
-import UserSystem.Ontology (Role)
+  ( SetCookie )
+import UserSystem.Ontology 
+  ( Role )
 
 type WithCookieHeaders res
    = Headers '[ Header "Set-Cookie" SetCookie

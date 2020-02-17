@@ -1,19 +1,50 @@
 module UserSystem where
 
-import Control.Exception
-import Control.Monad.Reader
+import Control.Exception 
+  ( finally )
+import Control.Monad.Reader 
+  ( ask
+  , liftIO
+  , ReaderT(runReaderT) )
 import Data.IORef
-import Data.Time.Clock
+  ( newIORef
+  , readIORef
+  , atomicWriteIORef )
+import Data.Time.Clock 
+  ( getCurrentTime )
 import Network.Wai.Handler.Warp
+  ( setOnException
+  , setPort
+  , defaultSettings
+  , runSettings )
 import Network.Wai.Middleware.RequestLogger
-import Servant.Server
+  ( logStdoutDev )
+import Servant.Server 
+  ( serveWithContext
+  , hoistServerWithContext )
 import System.Directory
+  ( setCurrentDirectory )
 import System.Environment
-import System.IO
+  ( getEnv )
+import System.IO 
+  ( hPutStr
+  , stderr )
 import System.Posix.User
+  ( getEffectiveUserName )
 import UserSystem.Database
+  ( testInfo
+  , runDatabaseT
+  , DatabaseT(unDatabaseT) )
 import UserSystem.Server
+  ( freezeProxy
+  , ctx
+  , ctxProxy
+  , server
+  )
 import UserSystem.Server.Reaper
+  ( stopSessionReaper
+  , startSessionReaper
+  )
 
 main :: IO ()
 main = do

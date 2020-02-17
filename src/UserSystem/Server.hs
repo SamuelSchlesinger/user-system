@@ -1,14 +1,39 @@
 module UserSystem.Server (freezeProxy, ctx, ctxProxy, server) where
 
-import Data.Pool
-import Database.PostgreSQL.Simple hiding ((:.))
-import Servant
-import Servant.Server.Experimental.Auth
+import Data.Pool 
+  ( Pool )
+import Database.PostgreSQL.Simple 
+  ( Connection )
+import Servant 
+  ( Proxy(Proxy)
+  , Context
+  , ServerT
+  , (:<|>)((:<|>))
+  , serveDirectoryWebApp
+  , Context((:.), EmptyContext) )
+import Servant.Server.Experimental.Auth 
+  ( mkAuthHandler )
 import UserSystem.API
-import UserSystem.Monad
-import UserSystem.Server.Account
-import UserSystem.Server.Object
+  ( UserSystemAPI
+  , Ctx
+  , AccountAPI
+  , ObjectAPI
+  , AuthenticatedAccountAPI )
+import UserSystem.Monad 
+  ( MonadUserSystem)
+import UserSystem.Server.Account 
+  ( signup
+  , signin
+  , newToken
+  , changePassword
+  , changeUsername )
+import UserSystem.Server.Object 
+  ( createObject
+  , editObject
+  , readObject
+  , giveUserRole )
 import UserSystem.Server.Authentication
+  ( authenticateRequest )
 
 freezeProxy :: Proxy UserSystemAPI
 freezeProxy = Proxy

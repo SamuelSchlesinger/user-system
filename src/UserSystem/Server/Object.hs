@@ -1,13 +1,34 @@
 module UserSystem.Server.Object where
 
 import Control.Monad.Except
+  ( MonadIO(liftIO) )
 import Data.Text.Encoding
+  ( encodeUtf8 )
 import Data.Time.Clock
+  ( getCurrentTime )
 import UserSystem.Database
+  ( ObjectAccessError(..)
+  , authedLookupObject
+  , insertObject
+  , updateObjectContents
+  , updateUserRole )
 import UserSystem.Ontology
+  ( User(..)
+  , Object(..)
+  , freshKey )
 import UserSystem.Monad
+  ( MonadUserSystem )
 import Servant
+  ( throwError
+  , err404
+  , err403
+  , err409 )
 import UserSystem.API.Types
+  ( ReadObject(..)
+  , Response(..)
+  , CreateObject(..)
+  , EditObject(..)
+  , GiveUserRole(..) )
 
 readObject :: MonadUserSystem m => User -> ReadObject -> m (Response ReadObject)
 readObject User{userID} (ReadObject objectName) = do

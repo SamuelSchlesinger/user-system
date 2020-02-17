@@ -2,21 +2,68 @@
 {-# LANGUAGE UndecidableInstances #-}
 module UserSystem.Database where
 
-import Control.Applicative
+import Control.Applicative 
+  ( Alternative )
 import Control.Monad
+  ( void )
 import Control.Monad.Catch
+  ( MonadMask
+  , MonadThrow
+  , MonadCatch
+  , Exception
+  , SomeException
+  , bracket
+  , catch
+  , throwM
+  , mask )
 import Control.Monad.Except
-import Control.Monad.Reader.Class
-import Control.Monad.Trans.Reader (ReaderT(..))
-import Data.ByteString (ByteString)
-import Data.Maybe (listToMaybe)
+  ( MonadError(catchError, throwError)
+  , MonadIO(liftIO)
+  , lift
+  , MonadTrans
+  , MonadPlus )
+import Control.Monad.Reader.Class 
+  ( MonadReader(ask) )
+import Control.Monad.Trans.Reader
+  ( ReaderT(..) )
+import Data.ByteString
+  ( ByteString )
+import Data.Maybe
+  ( listToMaybe )
 import Data.Pool
-import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8)
+  ( Pool
+  , destroyAllResources
+  , createPool
+  , putResource
+  , takeResource
+  , withResource )
+import Data.Text
+  ( Text )
+import Data.Text.Encoding
+  ( decodeUtf8 )
 import Database.PostgreSQL.Simple
+  ( ConnectInfo(..)
+  , Connection
+  , connect
+  , close
+  , withTransaction
+  , executeMany
+  , query
+  , execute
+  , execute_ 
+  , Only(..) 
+  , In(..) )
 import Database.PostgreSQL.Simple.SqlQQ
+  ( sql )
 import UserSystem.Ontology
+  ( User(..)
+  , Key(..)
+  , Session(..)
+  , Object(..)
+  , Role(..)
+  , ExecutedMigration(..) )
 import Data.Typeable
+  ( Typeable, typeRep, Proxy(..) )
 
 testInfo :: String -> ConnectInfo
 testInfo username = ConnectInfo { 

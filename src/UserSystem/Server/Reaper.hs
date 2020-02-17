@@ -1,11 +1,30 @@
 module UserSystem.Server.Reaper where
 
 import Control.Concurrent.Async
+  ( race )
 import Control.Concurrent
+  ( ThreadId
+  , forkIO
+  , threadDelay
+  , killThread )
 import Control.Concurrent.STM
+  ( TVar
+  , newTVarIO
+  , atomically
+  , writeTVar
+  , check
+  , readTVar )
 import UserSystem.Database
+  ( DatabaseT(..)
+  , reapSessions )  
 import Control.Exception
+  ( SomeException
+  , uninterruptibleMask 
+  , handle ) 
 import Control.Monad.Reader
+  ( ReaderT(..)
+  , void
+  , MonadIO(liftIO) )
 
 data SessionReaper = SessionReaper ThreadId (TVar SessionReaperState)
 

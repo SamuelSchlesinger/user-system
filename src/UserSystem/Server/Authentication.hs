@@ -1,13 +1,26 @@
 module UserSystem.Server.Authentication where
 
 import Data.Pool
-import Network.Wai
-import Database.PostgreSQL.Simple hiding ((:.))
-import Servant
+  ( Pool )
+import Network.Wai 
+  ( Request 
+  , requestHeaders )
+import Database.PostgreSQL.Simple 
+  ( Connection )
+import Servant 
+  ( Handler
+  , ServerError(errReasonPhrase)
+  , throwError
+  , err401 )
 import UserSystem.Ontology
+  ( User )
 import UserSystem.Database
+  ( DatabaseT(unDatabaseT)
+  , validateToken )
 import Control.Monad.Reader
+  ( ReaderT(runReaderT) )
 import Web.Cookie
+  ( parseCookiesText )
 
 authenticateRequest :: Pool Connection -> Request -> Handler User
 authenticateRequest pool req = do

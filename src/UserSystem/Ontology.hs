@@ -1,18 +1,18 @@
 module UserSystem.Ontology where
 
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Aeson (ToJSON, FromJSON)
 import Data.ByteString hiding (pack, unpack)
-import Data.Text
-import Data.Time
-import Data.Typeable
-import Data.UUID
-import Database.PostgreSQL.Simple
-import Database.PostgreSQL.Simple.FromField
-import Database.PostgreSQL.Simple.ToField
-import GHC.Generics
-import Servant
-import System.Random
+import Data.Text (Text, unpack, pack)
+import Data.Time (UTCTime)
+import Data.Typeable (Typeable)
+import Data.UUID (toText)
+import Database.PostgreSQL.Simple (ToRow, FromRow)
+import Database.PostgreSQL.Simple.FromField (FromField(fromField), typename)
+import Database.PostgreSQL.Simple.ToField (ToField(toField), Action(Escape))
+import GHC.Generics (Generic)
+import Servant (FromHttpApiData(parseUrlPiece), ToHttpApiData(toUrlPiece))
+import System.Random (randomIO)
 import Text.Read (readMaybe)
 
 newtype Key a = Key { unKey :: Text }
