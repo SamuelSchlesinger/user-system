@@ -35,6 +35,7 @@ hashPassword password = do
 createSession :: MonadUserSystem m => Key User -> m (WithCookieHeaders (Response SignIn))
 createSession sessionOwner = do
   sessionCreationDate <- liftIO getCurrentTime
+  let sessionExpirationDate = addUTCTime (60 * 60) sessionCreationDate
   sessionToken <- liftIO (toText <$> randomIO)
   sessionID <- liftIO ((Key . toText) <$> randomIO)
   let sess = Session {..}
@@ -74,7 +75,7 @@ changePassword User{userID} (ChangePassword newPassword) = do
     False -> throwError err500
 
 changeUsername :: MonadUserSystem m => User -> ChangeUsername -> m (Response ChangeUsername)
-changeUsername User{userID} (ChangeUsername newUsername) = do
-  updateUsername userID newUsername >>= \case
+changeUsername user (ChangeUsername newUsername) = do
+  updateUsername user newUsername >>= \case
     Nothing -> return ChangedUsername
     Just NewUsernameTaken -> throwError err409

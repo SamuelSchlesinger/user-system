@@ -17,6 +17,7 @@ readObject User{userID} (ReadObject objectName) = do
     Left ObjectDoesntExist -> throwError err404
     Left RoleViolation -> throwError err403
     Left UserDoesntExist -> throwError err404
+    Left UpdateSelfError -> throwError err403
     Right blob -> return $ ReadObjectResponse objectName blob
 
 createObject :: MonadUserSystem m => User -> CreateObject -> m (Response CreateObject)
@@ -34,11 +35,13 @@ editObject User{userID} (EditObject objectName (encodeUtf8 -> objectContents)) =
     Just RoleViolation -> throwError err403
     Just ObjectDoesntExist -> throwError err404
     Just UserDoesntExist -> throwError err404
+    Just UpdateSelfError -> throwError err403
 
 giveUserRole :: MonadUserSystem m => User -> GiveUserRole -> m (Response GiveUserRole)
-giveUserRole User{userID} (GiveUserRole{..}) = do
-  updateUserRole userID giveUserRoleUsername giveUserRoleObject giveUserRoleRole >>= \case
+giveUserRole user (GiveUserRole{..}) = do
+  updateUserRole user giveUserRoleUsername giveUserRoleObject giveUserRoleRole >>= \case
     Nothing -> return GaveUserRole
     Just RoleViolation -> throwError err403
     Just ObjectDoesntExist -> throwError err404
     Just UserDoesntExist -> throwError err404
+    Just UpdateSelfError -> throwError err403

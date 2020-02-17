@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 module UserSystem.Database where
 
@@ -15,6 +16,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.SqlQQ
 import UserSystem.Ontology
+import Data.Typeable
 
 testInfo :: String -> ConnectInfo
 testInfo username = ConnectInfo { 
@@ -66,44 +68,38 @@ insertUsers users = withConnection \c -> do
 
 updateUserPasshash :: MonadDatabase m => Key User -> ByteString -> m Bool
 updateUserPasshash user passhash = withConnection \c -> do
-  lookupUsers [user] >>= \case
-    [_] -> do
-      void . liftIO $ execute c [sql|
+  dbUnique (lookupUsers [user]) >>= \case
+    Just _ -> do
+      True <$ (void . liftIO $ execute c [sql|
         update users
         set passhash = ?
         where users.id = ?; 
-      |] (passhash, user)
-      return True
-    [] -> return False
-    (_ : _) -> error "We have more than one user associated with this key"
+      |] (passhash, user))
+    Nothing -> return False
 
 data UpdateUsernameError = NewUsernameTaken
 
-updateUsername :: (MonadReader (Pool Connection) m, MonadDatabase m) => Key User -> Text -> m (Maybe UpdateUsernameError)
-updateUsername userID newUsername = do
+updateUsername :: (MonadReader (Pool Connection) m, MonadDatabase m) => User -> Text -> m (Maybe UpdateUsernameError)
+updateUsername user@User{userID} newUsername = do
   pool <- ask
   liftIO $ withResource pool \c ->
     withTransaction c $ do
-      lookupUsersConn c [userID] >>= \case
-        [user] -> lookupUsersByUsernameConn c [newUsername] >>= \case
-            [user'] -> if user' == user then pure Nothing else return $ Just NewUsernameTaken
-            (_ : _) -> error "We have more than one user associated with this key"
-            [] -> do
-              void . liftIO $ execute c [sql|
-                update users
-                set username = ?
-                where users.id = ?;
-              |] (newUsername, userID)
-              return Nothing
-        [] -> error "User doesn't exist"
-        (_ : _) -> error "We have more than one user associated with this key"
+      dbUnique (lookupUsersByUsernameConn c [newUsername]) >>= \case
+        Just user' -> if user' == user then pure Nothing else return $ Just NewUsernameTaken
+        Nothing -> do
+          void . liftIO $ execute c [sql|
+            update users
+            set username = ?
+            where users.id = ?;
+          |] (newUsername, userID)
+          return Nothing
 
-data ObjectAccessError = ObjectDoesntExist | RoleViolation | UserDoesntExist
+data ObjectAccessError = ObjectDoesntExist | RoleViolation | UserDoesntExist | UpdateSelfError
 
 updateObjectContents :: MonadDatabase m => Key User -> Text -> ByteString -> m (Maybe ObjectAccessError)
 updateObjectContents userID objectName contents = withConnection \c -> liftIO $ withTransaction c $
-  lookupObjectsByNameConn c [objectName] >>= \case
-    [Object{objectID}] -> do
+  dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
+    Just Object{objectID} -> do
       maxPermissionLevelConn c userID objectID >>= \case
         Just role -> if role >= Edit then
           Nothing <$ void (execute c [sql|
@@ -115,13 +111,12 @@ updateObjectContents userID objectName contents = withConnection \c -> liftIO $ 
             return $ Just RoleViolation
         Nothing -> return $ Just RoleViolation
       return Nothing
-    [] -> return $ Just ObjectDoesntExist
-    (_ : _) -> error "multiple objects associated with the same key"
+    Nothing -> return $ Just ObjectDoesntExist
 
 authedLookupObject :: MonadDatabase m => Key User -> Text -> m (Either ObjectAccessError Text)
 authedLookupObject userID objectName = withConnection \c -> liftIO $ withTransaction c $
-  lookupObjectsByNameConn c [objectName] >>= \case
-    [Object{objectID, objectContents}] -> do
+  dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
+    Just Object{objectID, objectContents} -> do
       maxPermissionLevelConn c userID objectID >>= \case
         Just role ->
           if role >= Read then
@@ -129,22 +124,20 @@ authedLookupObject userID objectName = withConnection \c -> liftIO $ withTransac
           else
             return $ Left RoleViolation
         Nothing -> return $ Left RoleViolation
-    [] -> return $ Left ObjectDoesntExist
-    (_ : _) -> error "multiple objects associated with the same key"
+    Nothing -> return $ Left ObjectDoesntExist
 
 insertSessions :: MonadDatabase m => [Session] -> m ()
 insertSessions sessions = withConnection \c -> do
   void . liftIO $ executeMany c [sql|
-    insert into sessions (id, owner, creation_date, token)
-    values (?, ?, ?, ?);
+    insert into sessions (id, owner, creation_date, token, expiration_date)
+    values (?, ?, ?, ?, ?);
     |] sessions
 
 insertObject :: MonadDatabase m => Key User -> Object -> m Bool
 insertObject creator Object{..} = withConnection \c -> liftIO . withTransaction c $ do
-  lookupObjectsByNameConn c [objectName] >>= \case
-    [_] -> return False
-    (_ : _) -> error "multiple objects exist for a single key"
-    [] -> do
+  dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
+    Just _ -> return False
+    Nothing -> do
       void $ execute c [sql|
         insert into objects (id, name, contents, creation_date)
         values (?, ?, ?, ?); 
@@ -162,7 +155,8 @@ maxPermissionLevelConn c userID objectID = do
       select role from session_roles 
       inner join sessions on sessions.owner = ? 
       where session_roles.session = sessions.id
-        and session_roles.object = ?;
+        and session_roles.object = ?
+        and sessions.expiration_date > now();
     |] (userID, objectID)
   return (aggregateRoles $ userRoles <> sessionRoles)
   where
@@ -174,10 +168,9 @@ maxPermissionLevelConn c userID objectID = do
 
 maxPermissionLevel :: MonadDatabase m => Key User -> Key Object -> m (Maybe Role)
 maxPermissionLevel userID objectID = do
-  lookupObjects [objectID] >>= \case
-    [] -> return Nothing
-    (_ : _ : _) -> error "multiple objects exist in the database with the same ID"
-    [_] -> do
+  dbUnique (lookupObjects [objectID]) >>= \case
+    Nothing -> return Nothing
+    Just _ -> do
       withConnection \c -> liftIO $ maxPermissionLevelConn c userID objectID
 
 lookupObjects :: MonadDatabase m => [Key Object] -> m [Object]
@@ -196,7 +189,7 @@ insertExecutedMigrations executedMigrations = withConnection \c -> do
 reapSessions :: MonadDatabase m => m ()
 reapSessions = withConnection \c -> do
   void . liftIO $ execute_ c [sql|
-    delete from sessions where sessions.creation_date < now() - interval '1 hour';
+    delete from sessions where now() >= sessions.expiration_date;
     |]
 
 validateToken :: MonadDatabase m => Text -> m (Maybe User)
@@ -206,7 +199,7 @@ validateToken token = withConnection \c -> do
     from users
     inner join sessions on owner=users.id
                         and token in ?
-                      where sessions.creation_date >= now() - interval '1 hour';
+                      where sessions.expiration_date >= now();
     |] (Only (In [token]))) >>= \case
       [] -> do
         return Nothing
@@ -263,32 +256,39 @@ withTestUsers :: (MonadDatabase m, MonadMask m) => [User] -> ([Key User] -> m a)
 withTestUsers users dbGo = bracket (insertUsers users) (const . void $ deleteUsers userKeys) (const $ dbGo userKeys) where
   userKeys = map userID users
 
-updateUserRole :: MonadDatabase m => Key User -> Text -> Text -> Role -> m (Maybe ObjectAccessError)
-updateUserRole userID username objectName role = withConnection \c -> liftIO $ withTransaction c $ do
-  lookupObjectsByNameConn c [objectName] >>= \case
-    [Object{objectID}] -> do
-      lookupUsersByUsernameConn c [username] >>= \case
-        [User userID' _ _ _] -> do
-          perm <- maxPermissionLevelConn c userID objectID
-          if (perm == Just Collaborator && role < Collaborator
-           || perm >= Just Owner        && role < Owner) then do
-            userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql| 
-                select role from user_roles 
-                inner join objects on objects.name = ?
-                where user_ = ? and object = objects.id;
-              |] (userID, objectName)
-            case userRole of
-              Nothing -> Nothing <$ void (execute c [sql|
-                  insert into user_roles (user_, role, object, creation_date)
-                  values (?, ?, ?, now());
-                |] (userID', role, objectID))
-              Just _ -> Nothing <$ void (execute c [sql|
-                  update user_roles
-                  set role = ?
-                  where user_ = ? and object = ?;
-                |] (role, userID', objectID))
-          else return $ Just RoleViolation
-        [] -> return $ Just UserDoesntExist
-        (_ : _) -> error "multiple users with the same username exist"
-    [] -> return $ Just ObjectDoesntExist
-    (_ : _) -> error "multiple objects exist with the same ID"
+dbUnique :: (Typeable a, Monad m) => m [a] -> m (Maybe a)
+dbUnique (as :: m [a]) = as >>= \case
+  [a] -> return $ Just a
+  [] -> return $ Nothing
+  _ -> error $ "Found more than one " <> show (typeRep (Proxy @a)) <> " in the database"
+
+updateUserRole :: MonadDatabase m => User -> Text -> Text -> Role -> m (Maybe ObjectAccessError)
+updateUserRole User{userID, username} targetUsername objectName role = 
+  if username == targetUsername 
+  then return $ Just UpdateSelfError 
+  else withConnection \c -> liftIO $ withTransaction c $ do
+    dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
+      Just Object{objectID} -> do
+        dbUnique (lookupUsersByUsernameConn c [targetUsername]) >>= \case
+          Just (User userID' _ _ _) -> do
+            perm <- maxPermissionLevelConn c userID objectID
+            if (perm == Just Collaborator && role < Collaborator
+             || perm >= Just Owner        && role < Owner) then do
+              userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql| 
+                  select role from user_roles 
+                  inner join objects on objects.name = ?
+                  where user_ = ? and object = objects.id;
+                |] (userID, objectName)
+              case userRole of
+                Nothing -> Nothing <$ void (execute c [sql|
+                    insert into user_roles (user_, role, object, creation_date)
+                    values (?, ?, ?, now());
+                  |] (userID', role, objectID))
+                Just _ -> Nothing <$ void (execute c [sql|
+                    update user_roles
+                    set role = ?
+                    where user_ = ? and object = ?;
+                  |] (role, userID', objectID))
+            else return $ Just RoleViolation
+          Nothing -> return $ Just UserDoesntExist
+      Nothing -> return $ Just ObjectDoesntExist 

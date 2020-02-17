@@ -20,23 +20,23 @@ type SimpleResWithHeaders res = Post '[JSON] (WithCookieHeaders res)
 type SimpleReq req = SimpleReqRes req (Response req)
 
 type AccountAPI
-     = "signup" :> SimpleReqRes SignUp (Response SignUp)
+     = "signup" :> SimpleReq SignUp
   :<|> "signin" :> SimpleReqRes SignIn (WithCookieHeaders (Response SignIn)) 
   :<|> AuthenticatedAccountAPI
   
 type AuthenticatedAccountAPI
     = AuthProtect "user" :> 
     ( "new-token" :> SimpleResWithHeaders (Response SignIn)
- :<|> "change-password" :> SimpleReqRes ChangePassword (Response ChangePassword)
- :<|> "change-username" :> SimpleReqRes ChangeUsername (Response ChangeUsername)
+ :<|> "change-password" :> SimpleReq ChangePassword
+ :<|> "change-username" :> SimpleReq ChangeUsername
     )
 
 type ObjectAPI
     = AuthProtect "user" :> 
-    ( "create-object" :> SimpleReqRes CreateObject (Response CreateObject)
- :<|> "edit-object" :> SimpleReqRes EditObject (Response EditObject)
- :<|> "read-object" :> SimpleReqRes ReadObject (Response ReadObject)
- :<|> "give-user-role" :> SimpleReqRes GiveUserRole (Response GiveUserRole)
+    ( "create-object" :> SimpleReq CreateObject
+ :<|> "edit-object" :> SimpleReq EditObject
+ :<|> "read-object" :> SimpleReq ReadObject
+ :<|> "give-user-role" :> SimpleReq GiveUserRole
     )
 
 type Ctx = AuthHandler Wai.Request User ': '[]

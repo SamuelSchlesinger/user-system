@@ -10,9 +10,10 @@ import Database.PostgreSQL.Simple.ToField
 import GHC.Generics
 import Servant
 import Text.Read (readMaybe)
+import Data.Typeable
 
 newtype Key a = Key { unKey :: Text }
-  deriving stock (Generic)
+  deriving stock (Generic, Typeable)
   deriving newtype (ToHttpApiData, FromHttpApiData, Eq, Show, Read, Ord, FromField, ToField, ToJSON, FromJSON)
 
 data Session = Session
@@ -20,7 +21,8 @@ data Session = Session
   , sessionOwner :: Key User
   , sessionCreationDate :: UTCTime
   , sessionToken :: Text
-  } deriving stock (Generic, Eq, Show, Read, Ord)
+  , sessionExpirationDate :: UTCTime
+  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow)
 
 data User = User
@@ -28,17 +30,17 @@ data User = User
   , username :: Text
   , passhash :: ByteString
   , userCreationDate :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord)
+  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow)
 
 data ExecutedMigration = ExecutedMigration
   { executedMigrationFilePath :: FilePath
   , executedMigrationTimestamp :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord)
+  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow, ToJSON, FromJSON)
 
 data Role = Read | Edit | Collaborator | Owner
-  deriving stock (Generic, Eq, Show, Read, Ord)
+  deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
   deriving anyclass (ToJSON, FromJSON)
 
 instance FromHttpApiData Role where
@@ -75,7 +77,7 @@ data Object = Object
   , objectName :: Text
   , objectContents :: ByteString
   , objectCreationDate :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord)
+  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow)
 
 data SessionRole = SessionRole
@@ -83,7 +85,7 @@ data SessionRole = SessionRole
   , sessionRole :: Role
   , sessionRoleObject :: Key Object
   , sessionRoleCreationDate :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord)
+  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow)
 
 data UserRole = UserRole
@@ -91,5 +93,5 @@ data UserRole = UserRole
   , userRole :: Key Role
   , userRoleObject :: Key Object
   , userRoleCreationDate :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord)
+  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow)

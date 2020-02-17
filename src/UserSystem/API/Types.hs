@@ -98,3 +98,14 @@ data GiveUserRole = GiveUserRole
 data instance Response GiveUserRole = GaveUserRole
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+data GiveSessionRole = GiveSessionRole
+  { giveSessionRoleUsername :: Text
+  , giveSessionRoleObject :: Text
+  , giveSessionRoleRole :: Role }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON, FromForm, ToForm)
+
+data instance Response GiveSessionRole = GaveSessionRole
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON)
