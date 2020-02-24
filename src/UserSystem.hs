@@ -67,5 +67,5 @@ main = do
 exceptionPrinter :: (Show a, Show b) => a -> b -> IO ()
 exceptionPrinter _ ex = do
   now <- getCurrentTime
-  hPutStr stderr $ "Exception @ " <> show now <> ": "
+  hPutStr stderr $ "exception (" <> show now <> "): "
   print ex
