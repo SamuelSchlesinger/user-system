@@ -10,6 +10,12 @@ library:
   source-dirs:
     - src
   dependencies:
+    - lifted-base
+    - servant-blaze
+    - blaze-markup
+    - monad-control
+    - blaze-html
+    - transformers-base
     - async
     - aeson
     - base
@@ -40,6 +46,7 @@ library:
     - wai
     - wai-extra
     - warp
+    - containers
   <<: *library
 
 executables:

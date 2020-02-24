@@ -1,4 +1,4 @@
-module UserSystem.Server.Account where
+module Freeze.Server.Account where
 
 import Control.Monad.Except
   ( MonadIO(liftIO) )
@@ -16,21 +16,21 @@ import Crypto.BCrypt
   ( validatePassword )
 import Data.UUID
   ( toText )
-import UserSystem.Database
+import Freeze.Database
   ( UpdateUsernameError(NewUsernameTaken)
   , lookupUsersByUsername
   , insertUsers
   , insertSessions
   , updateUserPasshash 
   , updateUsername )
-import UserSystem.Ontology
-import UserSystem.Monad
+import Freeze.Ontology
+import Freeze.Monad
 import Servant
 import System.Random
 import Web.Cookie
-import UserSystem.API.Types
+import Freeze.API.Types
 
-signup :: MonadUserSystem m => SignUp -> m (Response SignUp)
+signup :: MonadFreeze m => SignUp -> m (Response SignUp)
 signup (SignUp username password) = do
   lookupUsersByUsername [username] >>= \case
     [] -> do
@@ -41,12 +41,12 @@ signup (SignUp username password) = do
       return SignedUp
     _ -> throwError err403 {errReasonPhrase = "Username already exists"}
 
-hashPassword :: MonadUserSystem m => Text -> m ByteString
+hashPassword :: MonadFreeze m => Text -> m ByteString
 hashPassword password = do
   x <- liftIO $ BCrypt.hashPasswordUsingPolicy BCrypt.slowerBcryptHashingPolicy (encodeUtf8 password)
   maybe (throwError err500) return x
 
-createSession :: MonadUserSystem m => Key User -> m (WithCookieHeaders (Response SignIn))
+createSession :: MonadFreeze m => Key User -> m (WithCookieHeaders (Response SignIn))
 createSession sessionOwner = do
   sessionCreationDate <- liftIO getCurrentTime
   let sessionExpirationDate = addUTCTime (60 * 60) sessionCreationDate
@@ -68,7 +68,7 @@ createSession sessionOwner = do
     addHeader "Accept" $
     addHeader True $ SignedIn
 
-signin :: MonadUserSystem m => SignIn -> m (WithCookieHeaders (Response SignIn))
+signin :: MonadFreeze m => SignIn -> m (WithCookieHeaders (Response SignIn))
 signin (SignIn username password) =
   lookupUsersByUsername [username] >>= \case
     [User {userID, passhash}] -> do
@@ -78,17 +78,17 @@ signin (SignIn username password) =
         else throwError err403 {errReasonPhrase = "Wrong password"}
     _ -> throwError err403 {errReasonPhrase = "Wrong username"}
 
-newToken :: MonadUserSystem m => User -> m (WithCookieHeaders (Response SignIn))
+newToken :: MonadFreeze m => User -> m (WithCookieHeaders (Response SignIn))
 newToken User{userID} = createSession userID 
 
-changePassword :: MonadUserSystem m => User -> ChangePassword -> m (Response ChangePassword)
+changePassword :: MonadFreeze m => User -> ChangePassword -> m (Response ChangePassword)
 changePassword User{userID} (ChangePassword newPassword) = do
   newPasshash <- hashPassword newPassword
   updateUserPasshash userID newPasshash >>= \case
     True -> return ChangedPassword
     False -> throwError err500
 
-changeUsername :: MonadUserSystem m => User -> ChangeUsername -> m (Response ChangeUsername)
+changeUsername :: MonadFreeze m => User -> ChangeUsername -> m (Response ChangeUsername)
 changeUsername user (ChangeUsername newUsername) = do
   updateUsername user newUsername >>= \case
     Nothing -> return ChangedUsername

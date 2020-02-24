@@ -1,4 +1,4 @@
-module UserSystem.Server.Object where
+module Freeze.Server.Object where
 
 import Control.Monad.Except
   ( MonadIO(liftIO) )
@@ -6,31 +6,31 @@ import Data.Text.Encoding
   ( encodeUtf8 )
 import Data.Time.Clock
   ( getCurrentTime )
-import UserSystem.Database
+import Freeze.Database
   ( ObjectAccessError(..)
   , authedLookupObject
   , insertObject
   , updateObjectContents
   , updateUserRole )
-import UserSystem.Ontology
+import Freeze.Ontology
   ( User(..)
   , Object(..)
   , freshKey )
-import UserSystem.Monad
-  ( MonadUserSystem )
+import Freeze.Monad
+  ( MonadFreeze )
 import Servant
   ( throwError
   , err404
   , err403
   , err409 )
-import UserSystem.API.Types
+import Freeze.API.Types
   ( ReadObject(..)
   , Response(..)
   , CreateObject(..)
   , EditObject(..)
   , GiveUserRole(..) )
 
-readObject :: MonadUserSystem m => User -> ReadObject -> m (Response ReadObject)
+readObject :: MonadFreeze m => User -> ReadObject -> m (Response ReadObject)
 readObject User{userID} (ReadObject objectName) = do
   authedLookupObject userID objectName >>= \case
     Left ObjectDoesntExist -> throwError err404
@@ -39,7 +39,7 @@ readObject User{userID} (ReadObject objectName) = do
     Left UpdateSelfError -> throwError err403
     Right blob -> return $ ReadObjectResponse objectName blob
 
-createObject :: MonadUserSystem m => User -> CreateObject -> m (Response CreateObject)
+createObject :: MonadFreeze m => User -> CreateObject -> m (Response CreateObject)
 createObject User{userID} (CreateObject objectName (encodeUtf8 -> objectContents)) = do
   objectID <- freshKey
   objectCreationDate <- liftIO getCurrentTime
@@ -47,7 +47,7 @@ createObject User{userID} (CreateObject objectName (encodeUtf8 -> objectContents
     True -> return CreatedObject
     False -> throwError err409
 
-editObject :: MonadUserSystem m => User -> EditObject -> m (Response EditObject)
+editObject :: MonadFreeze m => User -> EditObject -> m (Response EditObject)
 editObject User{userID} (EditObject objectName (encodeUtf8 -> objectContents)) = 
   updateObjectContents userID objectName objectContents >>= \case
     Nothing -> return EditedObject
@@ -56,7 +56,7 @@ editObject User{userID} (EditObject objectName (encodeUtf8 -> objectContents)) =
     Just UserDoesntExist -> throwError err404
     Just UpdateSelfError -> throwError err403
 
-giveUserRole :: MonadUserSystem m => User -> GiveUserRole -> m (Response GiveUserRole)
+giveUserRole :: MonadFreeze m => User -> GiveUserRole -> m (Response GiveUserRole)
 giveUserRole user (GiveUserRole{..}) = do
   updateUserRole user giveUserRoleUsername giveUserRoleObject giveUserRoleRole >>= \case
     Nothing -> return GaveUserRole

@@ -10,7 +10,7 @@ import Data.Text
   , pack )
 import Data.Time.Clock
   ( UTCTime )
-import UserSystem.API.Types
+import Freeze.API.Types
   ( Response
   , SignIn(..)
   , SignUp(..)
@@ -20,9 +20,9 @@ import UserSystem.API.Types
   , ChangePassword(..)
   , ReadObject(..)
   , GiveUserRole(..) )
-import UserSystem.API
-  ( UserSystemAPI )
-import UserSystem.Ontology
+import Freeze.API
+  ( FreezeAPI )
+import Freeze.Ontology
   ( Key(..)
   , User(..) )
 import Servant
@@ -66,4 +66,4 @@ instance HasDocs p => HasDocs (AuthProtect "user" :> p) where
     geoAuthDoc = DocAuthentication "A simple HTTP-only session based authentication system" "A session cookie"
 
 main :: IO ()
-main = putStrLn . markdown . docs $ Proxy @UserSystemAPI
+main = putStrLn . markdown . docs $ Proxy @FreezeAPI

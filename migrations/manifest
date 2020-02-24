@@ -2,4 +2,13 @@ executed_migrations.sql
 users.sql
 sessions.sql
 objects.sql
+boxes.sql
 roles.sql
+freezers.sql
+projects.sql
+mice.sql
+mouse_property_types.sql
+mouse_properties.sql
+sample_types.sql
+samples.sql
+join_mouse_properties.sql

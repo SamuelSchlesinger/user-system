@@ -1,4 +1,4 @@
-module UserSystem.API (UserSystemAPI, AccountAPI, ObjectAPI, Ctx, AuthenticatedAccountAPI) where
+module Freeze.API (FreezeAPI, AccountAPI, FreezerAPI, Ctx, AuthenticatedAccountAPI) where
 
 import Servant 
   ( (:>)
@@ -12,24 +12,29 @@ import Servant
 import Servant.Server.Experimental.Auth 
   ( AuthHandler
   , AuthServerData )
-import UserSystem.API.Types 
+import Freeze.API.Types 
   ( WithCookieHeaders
   , Response
   , SignUp
   , SignIn
   , ChangePassword
   , ChangeUsername
-  , CreateObject
-  , EditObject
-  , ReadObject
-  , GiveUserRole )
-import UserSystem.Ontology
+  , CreateFreezer
+  , CreateProject
+  , CreateBox
+  , SlotProbe
+  , CreateSample
+  , CreateSampleType
+  , CreateMouse
+  , CreateMouseProperty
+  , GetFreezers )
+import Freeze.Ontology
   ( User )
 import qualified Network.Wai as Wai
 
-type UserSystemAPI
+type FreezeAPI
      = "account" :> AccountAPI 
-  :<|> "object" :> ObjectAPI
+  :<|> "freezer" :> AuthProtect "user" :> FreezerAPI
   :<|> Raw
 
 type SimpleReqRes req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] res
@@ -37,6 +42,8 @@ type SimpleReqRes req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] 
 type SimpleResWithHeaders res = Post '[JSON] (WithCookieHeaders res)
 
 type SimpleReq req = SimpleReqRes req (Response req)
+
+type SimpleReqNoForm req = ReqBody '[JSON] req :> Post '[JSON] (Response req)
 
 type AccountAPI
      = "signup" :> SimpleReq SignUp
@@ -50,13 +57,16 @@ type AuthenticatedAccountAPI
  :<|> "change-username" :> SimpleReq ChangeUsername
     )
 
-type ObjectAPI
-    = AuthProtect "user" :> 
-    ( "create-object" :> SimpleReq CreateObject
- :<|> "edit-object" :> SimpleReq EditObject
- :<|> "read-object" :> SimpleReq ReadObject
- :<|> "give-user-role" :> SimpleReq GiveUserRole
-    )
+type FreezerAPI
+    =  "create-freezer"             :> SimpleReq CreateFreezer
+  :<|> "create-project"             :> SimpleReq CreateProject
+  :<|> "create-box"                 :> SimpleReq CreateBox
+  :<|> "slot-probe"                 :> SimpleReq SlotProbe
+  :<|> "create-mouse"               :> SimpleReq CreateMouse
+  :<|> "create-sample"              :> SimpleReq CreateSample
+  :<|> "create-sample-type"         :> SimpleReq CreateSampleType
+  :<|> "create-mouse-property"      :> SimpleReq CreateMouseProperty
+  :<|> "get-freezers"               :> SimpleReqNoForm GetFreezers
 
 type Ctx = AuthHandler Wai.Request User ': '[]
 

@@ -1,28 +1,45 @@
-# User System
+# Freezer Management System
 
-A basic user system with objects and roles at the user and session level, with 
-sessions stored in the database and passwords hashed with bcrypt. Useful for branching off of for 
-other projects, kept tearing it out of old ones so I figured I'd give it a home.
-To build this, I have used the servant web framework and postgresql-simple. This
-allows me to very rapidly integrate raw SQL queries and Haskell in a way
-that lets me experiment very quickly.
+A freezer sample inventory management tracking service for the purpose of
+automating organizational tasks related to the inventory and samples.
 
-## Testing
+## The Problem
 
-To test the server, you can use the static file server and the various pages located
-in the `static` directory. My usual workflow is running something like
+There is a lot of manual work associated with this management at the moment,
+and the current system, consisting of one excel spreadsheet with different
+tabs for each shelf as well as various other spreadsheets which store other
+sorts of information about the samples. These other spreadsheets are difficult
+to maintain and interrelate with each other and the inventory spreadsheet.
+These are collaboratively maintained on DropBox and their contents are not
+necessarily well documented or understood by everyone in the lab.
 
+## The Solution
+
+The tubes are very small so you can only put so much information directly
+on them, and after long periods of storage you can lose important information
+associated with that sample. Thus, a solution is required which does not simply
+encode the information on the sample, but maintains a database of the knowledge
+in a well documented, searchable, and easily updatable form.
+
+Thus, our task is to understand the various spreadsheets which are currently
+in use, to create a database schema which reflects all of the information
+that is currently being maintained, and an interface for the lab employees to
+update and access this data.
+
+## Installing/Running
+
+To run this, you need to have PostgreSQL running locally on port 5432 with a database called "freezers".
+To startup, run the commands:
 ```bash
-stack run drop; stack run migrate; stack run user-system
+export FREEZE_LOCATION=<this-folder>
+stack run migrate
+stack run freezer-management
 ```
-
-then I go to `localhost:8080/signup.html`, `localhost:8080/signin.html`, and then test
-whatever endpoints I want in whatever sequence is required to test the behavior I want.
-It would be nice to design these pages in a way that doesn't require this but, at the moment,
-you will be directed to the JSON response instead of to another useful page and you will
-have to input the next URL to take your next action. I could make this easier by implementing
-an html interface as a part of the response of the various endpoints, but this would clutter
-the code, the purpose of which isn't to be used but to help me learn.
+If you want to drop the various tables that this adds to that postgres database, you can run this script
+and get rid of them all. 
+```bash
+stack run drop
+```
 
 ## Module Structure
 

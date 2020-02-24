@@ -1,4 +1,4 @@
-module UserSystem.Server.Reaper where
+module Freeze.Server.Reaper where
 
 import Control.Concurrent.Async
   ( race )
@@ -14,7 +14,7 @@ import Control.Concurrent.STM
   , writeTVar
   , check
   , readTVar )
-import UserSystem.Database
+import Freeze.Database
   ( DatabaseT(..)
   , reapSessions )  
 import Control.Exception

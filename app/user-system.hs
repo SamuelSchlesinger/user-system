@@ -1,6 +1,6 @@
 module Main where
 
-import qualified UserSystem
+import qualified Freeze
 
 main :: IO ()
-main = UserSystem.main
+main = Freeze.main

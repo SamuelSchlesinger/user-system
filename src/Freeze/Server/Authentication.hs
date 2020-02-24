@@ -1,4 +1,4 @@
-module UserSystem.Server.Authentication where
+module Freeze.Server.Authentication where
 
 import Data.Pool
   ( Pool )
@@ -12,9 +12,9 @@ import Servant
   , ServerError(errReasonPhrase)
   , throwError
   , err401 )
-import UserSystem.Ontology
+import Freeze.Ontology
   ( User )
-import UserSystem.Database
+import Freeze.Database
   ( DatabaseT(unDatabaseT)
   , validateToken )
 import Control.Monad.Reader

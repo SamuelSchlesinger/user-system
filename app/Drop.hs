@@ -27,5 +27,14 @@ main = do
      drop table session_roles cascade;
      drop table user_roles cascade;
      drop type role;
+     drop table freezers cascade;
+     drop table projects cascade;
+     drop table boxes cascade;
+     drop table mice cascade;
+     drop table mouse_property_types cascade;
+     drop table mouse_properties cascade;
+     drop table sample_types cascade;
+     drop table samples cascade;
+     drop table join_mouse_properties;
     |]
 

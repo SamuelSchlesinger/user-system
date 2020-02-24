@@ -1,4 +1,4 @@
-module UserSystem where
+module Freeze where
 
 import Control.Exception 
   ( finally )
@@ -31,24 +31,24 @@ import System.IO
   , stderr )
 import System.Posix.User
   ( getEffectiveUserName )
-import UserSystem.Database
+import Freeze.Database
   ( testInfo
   , runDatabaseT
   , DatabaseT(unDatabaseT) )
-import UserSystem.Server
+import Freeze.Server
   ( freezeProxy
   , ctx
   , ctxProxy
   , server
   )
-import UserSystem.Server.Reaper
+import Freeze.Server.Reaper
   ( stopSessionReaper
   , startSessionReaper
   )
 
 main :: IO ()
 main = do
-  getEnv "USER_SYSTEM_LOCATION" >>= setCurrentDirectory
+  getEnv "FREEZE_LOCATION" >>= setCurrentDirectory
   connInfo <- testInfo <$> getEffectiveUserName
   sessionReaper <- newIORef Nothing
   flip finally (maybe (pure ()) stopSessionReaper =<< readIORef sessionReaper) $ runDatabaseT connInfo do
