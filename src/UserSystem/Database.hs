@@ -153,11 +153,10 @@ updateObjectContents userID objectName contents = withConnection \c -> liftIO $ 
             update objects
             set contents = ?
             where objects.name = ?;
-            |] (objectName, contents))
+            |] (contents, objectName))
           else
             return $ Just RoleViolation
         Nothing -> return $ Just RoleViolation
-      return Nothing
     Nothing -> return $ Just ObjectDoesntExist
 
 authedLookupObject :: MonadDatabase m => Key User -> Text -> m (Either ObjectAccessError Text)
@@ -321,17 +320,21 @@ updateUserRole User{userID, username} targetUsername objectName role =
             perm <- maxPermissionLevelConn c userID objectID
             if (perm == Just Collaborator && role < Collaborator
              || perm >= Just Owner        && role < Owner) then do
-              userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql| 
-                  select role from user_roles 
-                  inner join objects on objects.name = ?
-                  where user_ = ? and object = objects.id;
-                |] (userID, objectName)
+              userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql|
+                  select role from user_roles
+                  inner join objects on objects.id = user_roles.object
+                  where user_ = ? and objects.name = ?;
+                |] (userID', objectName)
               case userRole of
-                Nothing -> Nothing <$ void (execute c [sql|
+                Nothing -> do
+                  liftIO $ putStrLn "A"
+                  Nothing <$ void (execute c [sql|
                     insert into user_roles (user_, role, object, creation_date)
                     values (?, ?, ?, now());
                   |] (userID', role, objectID))
-                Just _ -> Nothing <$ void (execute c [sql|
+                Just _ -> do
+                  liftIO $ putStrLn "B"
+                  Nothing <$ void (execute c [sql|
                     update user_roles
                     set role = ?
                     where user_ = ? and object = ?;

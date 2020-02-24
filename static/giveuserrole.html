@@ -6,10 +6,15 @@
 
   <body>
     <h1> User System </h1>
-    <form name="give-user-role" action="/object/give-user-role" method="post">
+    <form id="give-user-role-form" name="give-user-role" action="/object/give-user-role" method="post">
       Username: <input type="text" name="giveUserRoleUsername"> <br>
       Object: <input type="text" name="giveUserRoleObject"> <br>
-      Role: <input type="text" name="giveUserRoleRole"> <br>
+      <label for="roles"> Role:</label>
+      <select id="roles" size="3" form="give-user-role-form" name="giveUserRoleRole">
+        <option value="Collaborator">Collaborator</option>
+        <option value="Edit">Edit</option>
+        <option value="Read">Read</option>
+      </select>
       <input class="button" type="submit" value="Give User Role">
     </form>
   </body>
