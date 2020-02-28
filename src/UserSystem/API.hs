@@ -1,4 +1,4 @@
-module UserSystem.API (UserSystemAPI, AccountAPI, ObjectAPI, Ctx, AuthenticatedAccountAPI) where
+module UserSystem.API (UserSystemAPI, AccountAPI, Ctx, AuthenticatedAccountAPI) where
 
 import Servant 
   ( (:>)
@@ -18,18 +18,13 @@ import UserSystem.API.Types
   , SignUp
   , SignIn
   , ChangePassword
-  , ChangeUsername
-  , CreateObject
-  , EditObject
-  , ReadObject
-  , GiveUserRole )
+  , ChangeUsername )
 import UserSystem.Ontology
   ( User )
 import qualified Network.Wai as Wai
 
 type UserSystemAPI
      = "account" :> AccountAPI 
-  :<|> "object" :> ObjectAPI
   :<|> Raw
 
 type SimpleReqRes req res = ReqBody '[JSON, FormUrlEncoded] req :> Post '[JSON] res
@@ -48,14 +43,6 @@ type AuthenticatedAccountAPI
     ( "new-token" :> SimpleResWithHeaders (Response SignIn)
  :<|> "change-password" :> SimpleReq ChangePassword
  :<|> "change-username" :> SimpleReq ChangeUsername
-    )
-
-type ObjectAPI
-    = AuthProtect "user" :> 
-    ( "create-object" :> SimpleReq CreateObject
- :<|> "edit-object" :> SimpleReq EditObject
- :<|> "read-object" :> SimpleReq ReadObject
- :<|> "give-user-role" :> SimpleReq GiveUserRole
     )
 
 type Ctx = AuthHandler Wai.Request User ': '[]

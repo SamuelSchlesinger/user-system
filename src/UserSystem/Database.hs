@@ -28,8 +28,6 @@ import Control.Monad.Trans.Reader
   ( ReaderT(..) )
 import Data.ByteString
   ( ByteString )
-import Data.Maybe
-  ( listToMaybe )
 import Data.Pool
   ( Pool
   , destroyAllResources
@@ -39,8 +37,6 @@ import Data.Pool
   , withResource )
 import Data.Text
   ( Text )
-import Data.Text.Encoding
-  ( decodeUtf8 )
 import Database.PostgreSQL.Simple
   ( ConnectInfo(..)
   , Connection
@@ -59,8 +55,6 @@ import UserSystem.Ontology
   ( User(..)
   , Key(..)
   , Session(..)
-  , Object(..)
-  , Role(..)
   , ExecutedMigration(..) )
 import Data.Typeable
   ( Typeable, typeRep, Proxy(..) )
@@ -141,89 +135,12 @@ updateUsername user@User{userID} newUsername = do
           |] (newUsername, userID)
           return Nothing
 
-data ObjectAccessError = ObjectDoesntExist | RoleViolation | UserDoesntExist | UpdateSelfError
-
-updateObjectContents :: MonadDatabase m => Key User -> Text -> ByteString -> m (Maybe ObjectAccessError)
-updateObjectContents userID objectName contents = withConnection \c -> liftIO $ withTransaction c $
-  dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
-    Just Object{objectID} -> do
-      maxPermissionLevelConn c userID objectID >>= \case
-        Just role -> if role >= Edit then
-          Nothing <$ void (execute c [sql|
-            update objects
-            set contents = ?
-            where objects.name = ?;
-            |] (contents, objectName))
-          else
-            return $ Just RoleViolation
-        Nothing -> return $ Just RoleViolation
-    Nothing -> return $ Just ObjectDoesntExist
-
-authedLookupObject :: MonadDatabase m => Key User -> Text -> m (Either ObjectAccessError Text)
-authedLookupObject userID objectName = withConnection \c -> liftIO $ withTransaction c $
-  dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
-    Just Object{objectID, objectContents} -> do
-      maxPermissionLevelConn c userID objectID >>= \case
-        Just role ->
-          if role >= Read then
-            return $ Right (decodeUtf8 objectContents)
-          else
-            return $ Left RoleViolation
-        Nothing -> return $ Left RoleViolation
-    Nothing -> return $ Left ObjectDoesntExist
-
 insertSessions :: MonadDatabase m => [Session] -> m ()
 insertSessions sessions = withConnection \c -> do
   void . liftIO $ executeMany c [sql|
     insert into sessions (id, owner, creation_date, token, expiration_date)
     values (?, ?, ?, ?, ?);
     |] sessions
-
-insertObject :: MonadDatabase m => Key User -> Object -> m Bool
-insertObject creator Object{..} = withConnection \c -> liftIO . withTransaction c $ do
-  dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
-    Just _ -> return False
-    Nothing -> do
-      void $ execute c [sql|
-        insert into objects (id, name, contents, creation_date)
-        values (?, ?, ?, ?); 
-        insert into user_roles (user_, role, object, creation_date)
-        values (?, ?, ?, ?);
-      |] (objectID, objectName, objectContents, objectCreationDate, creator, Owner, objectID, objectCreationDate)
-      return True
-
-maxPermissionLevelConn :: Connection -> Key User -> Key Object -> IO (Maybe Role)
-maxPermissionLevelConn c userID objectID = do
-  userRoles <- fmap (fmap fromOnly) $ query c [sql| 
-      select role from user_roles where user_ = ? and object = ?;
-    |] (userID, objectID)
-  sessionRoles <- fmap (fmap fromOnly) $ query c [sql|
-      select role from session_roles 
-      inner join sessions on sessions.owner = ? 
-      where session_roles.session = sessions.id
-        and session_roles.object = ?
-        and sessions.expiration_date > now();
-    |] (userID, objectID)
-  return (aggregateRoles $ userRoles <> sessionRoles)
-  where
-    aggregateRoles :: [Role] -> Maybe Role
-    aggregateRoles = go Nothing where
-      go x [] = x
-      go Nothing (role : roles) = go (Just role) roles
-      go (Just role') (role : roles) = go (Just (max role role')) roles
-
-maxPermissionLevel :: MonadDatabase m => Key User -> Key Object -> m (Maybe Role)
-maxPermissionLevel userID objectID = do
-  dbUnique (lookupObjects [objectID]) >>= \case
-    Nothing -> return Nothing
-    Just _ -> do
-      withConnection \c -> liftIO $ maxPermissionLevelConn c userID objectID
-
-lookupObjects :: MonadDatabase m => [Key Object] -> m [Object]
-lookupObjects objects = withConnection \c -> do
-  liftIO $ query c [sql|
-    select * from objects where id in ?;
-    |] (Only (In objects))
 
 insertExecutedMigrations :: MonadDatabase m => [ExecutedMigration] -> m ()
 insertExecutedMigrations executedMigrations = withConnection \c -> do
@@ -274,18 +191,6 @@ lookupUsersByUsername usernames = withConnection \c -> do
      select * from users where username in ?;
     |] (Only (In usernames))
 
-lookupObjectsByName :: MonadDatabase m => [Text] -> m [Object]
-lookupObjectsByName names = withConnection \c -> do
-  liftIO $ query c [sql|
-    select * from objects where name in ?;
-    |] (Only (In names))
-
-lookupObjectsByNameConn :: Connection -> [Text] -> IO [Object]
-lookupObjectsByNameConn c names = do
-  query c [sql|
-    select * from objects where name in ?;
-    |] (Only (In names))
-
 lookupExecutedMigrations :: MonadDatabase m => [FilePath] -> m [ExecutedMigration]
 lookupExecutedMigrations names = withConnection \c -> do
   liftIO $ query c [sql|
@@ -307,38 +212,3 @@ dbUnique (as :: m [a]) = as >>= \case
   [a] -> return $ Just a
   [] -> return $ Nothing
   _ -> error $ "Found more than one " <> show (typeRep (Proxy @a)) <> " in the database"
-
-updateUserRole :: MonadDatabase m => User -> Text -> Text -> Role -> m (Maybe ObjectAccessError)
-updateUserRole User{userID, username} targetUsername objectName role = 
-  if username == targetUsername 
-  then return $ Just UpdateSelfError 
-  else withConnection \c -> liftIO $ withTransaction c $ do
-    dbUnique (lookupObjectsByNameConn c [objectName]) >>= \case
-      Just Object{objectID} -> do
-        dbUnique (lookupUsersByUsernameConn c [targetUsername]) >>= \case
-          Just (User userID' _ _ _) -> do
-            perm <- maxPermissionLevelConn c userID objectID
-            if (perm == Just Collaborator && role < Collaborator
-             || perm >= Just Owner        && role < Owner) then do
-              userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql|
-                  select role from user_roles
-                  inner join objects on objects.id = user_roles.object
-                  where user_ = ? and objects.name = ?;
-                |] (userID', objectName)
-              case userRole of
-                Nothing -> do
-                  liftIO $ putStrLn "A"
-                  Nothing <$ void (execute c [sql|
-                    insert into user_roles (user_, role, object, creation_date)
-                    values (?, ?, ?, now());
-                  |] (userID', role, objectID))
-                Just _ -> do
-                  liftIO $ putStrLn "B"
-                  Nothing <$ void (execute c [sql|
-                    update user_roles
-                    set role = ?
-                    where user_ = ? and object = ?;
-                  |] (role, userID', objectID))
-            else return $ Just RoleViolation
-          Nothing -> return $ Just UserDoesntExist
-      Nothing -> return $ Just ObjectDoesntExist 

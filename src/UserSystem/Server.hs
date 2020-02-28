@@ -1,4 +1,4 @@
-module UserSystem.Server (freezeProxy, ctx, ctxProxy, server) where
+module UserSystem.Server (userSystemProxy, ctx, ctxProxy, server) where
 
 import Data.Pool 
   ( Pool )
@@ -17,7 +17,6 @@ import UserSystem.API
   ( UserSystemAPI
   , Ctx
   , AccountAPI
-  , ObjectAPI
   , AuthenticatedAccountAPI )
 import UserSystem.Monad 
   ( MonadUserSystem)
@@ -27,16 +26,11 @@ import UserSystem.Server.Account
   , newToken
   , changePassword
   , changeUsername )
-import UserSystem.Server.Object 
-  ( createObject
-  , editObject
-  , readObject
-  , giveUserRole )
 import UserSystem.Server.Authentication
   ( authenticateRequest )
 
-freezeProxy :: Proxy UserSystemAPI
-freezeProxy = Proxy
+userSystemProxy :: Proxy UserSystemAPI
+userSystemProxy = Proxy
 
 ctxProxy :: Proxy Ctx
 ctxProxy = Proxy
@@ -45,7 +39,7 @@ ctx :: Pool Connection -> Context Ctx
 ctx pool = mkAuthHandler (authenticateRequest pool) :. EmptyContext
 
 server :: MonadUserSystem m => ServerT UserSystemAPI m
-server = account :<|> object :<|> serveDirectoryWebApp "static"
+server = account :<|> serveDirectoryWebApp "static"
 
 account :: MonadUserSystem m => ServerT AccountAPI m
 account = signup :<|> signin :<|> authenticatedAccount
@@ -55,10 +49,3 @@ authenticatedAccount user
      = newToken user 
   :<|> changePassword user 
   :<|> changeUsername user 
-
-object :: MonadUserSystem m => ServerT ObjectAPI m
-object user
-     = createObject user 
-  :<|> editObject user
-  :<|> readObject user
-  :<|> giveUserRole user

@@ -12,8 +12,6 @@ import Servant
   ( Headers, Header )
 import Web.Cookie
   ( SetCookie )
-import UserSystem.Ontology 
-  ( Role )
 
 type WithCookieHeaders res
    = Headers '[ Header "Set-Cookie" SetCookie
@@ -61,58 +59,5 @@ data ChangeUsername = ChangeUsername
   deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
 
 data instance Response ChangeUsername = ChangedUsername
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-data CreateObject = CreateObject
-  { createObjectName :: Text
-  , createObjectContents :: Text } 
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
-
-data instance Response CreateObject = CreatedObject
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-data EditObject = EditObject
-  { editObjectName :: Text
-  , editObjectContents :: Text }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
-
-data instance Response EditObject = EditedObject
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-newtype ReadObject = ReadObject
-  { readObjectName :: Text }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, ToForm, FromForm)
-
-data instance Response ReadObject = ReadObjectResponse
-  { readObjectResponseName :: Text
-  , readObjectResponseContent :: Text }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-data GiveUserRole = GiveUserRole
-  { giveUserRoleUsername :: Text
-  , giveUserRoleObject :: Text
-  , giveUserRoleRole :: Role }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, FromForm, ToForm)
-
-data instance Response GiveUserRole = GaveUserRole
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-data GiveSessionRole = GiveSessionRole
-  { giveSessionRoleUsername :: Text
-  , giveSessionRoleObject :: Text
-  , giveSessionRoleRole :: Role }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, FromForm, ToForm)
-
-data instance Response GiveSessionRole = GaveSessionRole
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)

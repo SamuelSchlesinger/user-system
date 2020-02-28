@@ -36,7 +36,7 @@ import UserSystem.Database
   , runDatabaseT
   , DatabaseT(unDatabaseT) )
 import UserSystem.Server
-  ( freezeProxy
+  ( userSystemProxy
   , ctx
   , ctxProxy
   , server
@@ -56,9 +56,9 @@ main = do
     reaper <- startSessionReaper
     liftIO $ atomicWriteIORef sessionReaper (Just reaper)
     let app = serveWithContext 
-                freezeProxy 
+                userSystemProxy 
                 (ctx pool) 
-                (hoistServerWithContext freezeProxy ctxProxy
+                (hoistServerWithContext userSystemProxy ctxProxy
                    (flip (runReaderT . unDatabaseT) pool) 
                    server)
     let settings = setOnException exceptionPrinter $ setPort 8080 defaultSettings
