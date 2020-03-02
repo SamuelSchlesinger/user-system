@@ -15,8 +15,7 @@ import Servant
 import Web.Cookie
   ( SetCookie )
 import Freeze.Ontology 
-  ( Role
-  , Key(..)
+  ( Key(..)
   , FullFreezer(..) 
   , Rack
   , Freezer(..)
@@ -108,28 +107,6 @@ newtype ReadObject = ReadObject
 data instance Response ReadObject = ReadObjectResponse
   { readObjectResponseName :: Text
   , readObjectResponseContent :: Text }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-data GiveUserRole = GiveUserRole
-  { giveUserRoleUsername :: Text
-  , giveUserRoleObject :: Text
-  , giveUserRoleRole :: Role }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, FromForm, ToForm)
-
-data instance Response GiveUserRole = GaveUserRole
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-data GiveSessionRole = GiveSessionRole
-  { giveSessionRoleUsername :: Text
-  , giveSessionRoleObject :: Text
-  , giveSessionRoleRole :: Role }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (FromJSON, ToJSON, FromForm, ToForm)
-
-data instance Response GiveSessionRole = GaveSessionRole
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)
 

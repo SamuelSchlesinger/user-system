@@ -28,8 +28,6 @@ import Control.Monad.Trans.Reader
   ( ReaderT(..) )
 import Data.ByteString
   ( ByteString )
-import Data.Maybe
-  ( listToMaybe )
 import Data.Pool
   ( Pool
   , destroyAllResources
@@ -39,8 +37,6 @@ import Data.Pool
   , withResource )
 import Data.Text
   ( Text )
-import Data.Text.Encoding
-  ( decodeUtf8 )
 import Database.PostgreSQL.Simple
   ( ConnectInfo(..)
   , Connection
@@ -62,7 +58,6 @@ import Freeze.Ontology
   ( User(..)
   , Key(..)
   , Session(..)
-  , Role(..)
   , ExecutedMigration(..) 
   , Box(..)
   , MousePropertyType(..) 
@@ -159,94 +154,12 @@ updateUsername user@User{userID} newUsername = do
           |] (newUsername, userID)
           return Nothing
 
-data BoxAccessError = BoxDoesntExist | RoleViolation | UserDoesntExist | UpdateSelfError
-
-updateBoxContents :: MonadDatabase m => Key User -> Text -> ByteString -> m (Maybe BoxAccessError)
-updateBoxContents userID boxName contents = withConnection \c -> liftIO $ withTransaction c $
-  dbUnique (lookupBoxsByNameConn c [boxName]) >>= \case
-    Just Box{boxID} -> do
-      maxPermissionLevelConn c userID boxID >>= \case
-        Just role -> if role >= Edit then
-          Nothing <$ void (execute c [sql|
-            update boxs
-            set contents = ?
-            where boxs.name = ?;
-            |] (boxName, contents))
-          else
-            return $ Just RoleViolation
-        Nothing -> return $ Just RoleViolation
-      return Nothing
-    Nothing -> return $ Just BoxDoesntExist
-
-authedLookupBox :: MonadDatabase m => Key User -> Text -> m (Either BoxAccessError FullBox)
-authedLookupBox userID boxName = withConnection \c -> liftIO $ withTransaction c $
-  dbUnique (lookupBoxesByNameConn c [boxName]) >>= \case
-    Just box@Box{boxID} -> do
-      maxPermissionLevelConn c userID boxID >>= \case
-        Just role ->
-          if role >= Read then
-            Right <$> lookupFullBoxConn c boxID
-          else
-            return $ Left RoleViolation
-        Nothing -> return $ Left RoleViolation
-    Nothing -> return $ Left BoxDoesntExist
-
 insertSessions :: MonadDatabase m => [Session] -> m ()
 insertSessions sessions = withConnection \c -> do
   void . liftIO $ executeMany c [sql|
     insert into sessions (id, owner, creation_date, token, expiration_date)
     values (?, ?, ?, ?, ?);
     |] sessions
-
-insertBox :: MonadDatabase m => Key User -> Box -> m Bool
-insertBox creator Box{..} = withConnection \c -> liftIO . withTransaction c $ do
-  dbUnique (lookupBoxsByNameConn c [boxName]) >>= \case
-    Just _ -> return False
-    Nothing -> do
-      void $ execute c [sql|
-        insert into boxs (id, name, contents, creation_date)
-        values (?, ?, ?, ?); 
-        insert into user_roles (user_, role, box, creation_date)
-        values (?, ?, ?, ?);
-      |] (boxID, boxName, boxContents, boxCreationDate, creator, Owner, boxID, boxCreationDate)
-      return True
-
-maxPermissionLevelConn :: Connection -> Key User -> Key Box -> IO (Maybe Role)
-maxPermissionLevelConn c userID boxID = do
-  userRoles <- fmap (fmap fromOnly) $ query c [sql| 
-      select role from user_roles where user_ = ? and box = ?;
-    |] (userID, boxID)
-  sessionRoles <- fmap (fmap fromOnly) $ query c [sql|
-      select role from session_roles 
-      inner join sessions on sessions.owner = ? 
-      where session_roles.session = sessions.id
-        and session_roles.box = ?
-        and sessions.expiration_date > now();
-    |] (userID, boxID)
-  return (aggregateRoles $ userRoles <> sessionRoles)
-  where
-    aggregateRoles :: [Role] -> Maybe Role
-    aggregateRoles = go Nothing where
-      go x [] = x
-      go Nothing (role : roles) = go (Just role) roles
-      go (Just role') (role : roles) = go (Just (max role role')) roles
-
-maxPermissionLevel :: MonadDatabase m => Key User -> Key Box -> m (Maybe Role)
-maxPermissionLevel userID boxID = do
-  dbUnique (lookupBoxs [boxID]) >>= \case
-    Nothing -> return Nothing
-    Just _ -> do
-      withConnection \c -> liftIO $ maxPermissionLevelConn c userID boxID
-
-lookupBoxesByNameConn :: Connection -> [Text] -> IO [Box]
-lookupBoxesByNameConn c boxs = do
-  query c [sql|
-    select * from boxes where name in ?;
-    |] (Only (In boxs))
-
-lookupFullBoxConn :: Connection -> Key Box -> IO FullBox
-lookupFullBoxConn c boxID = _
-  
 
 insertExecutedMigrations :: MonadDatabase m => [ExecutedMigration] -> m ()
 insertExecutedMigrations executedMigrations = withConnection \c -> do
@@ -330,37 +243,6 @@ dbUnique (as :: m [a]) = as >>= \case
   [a] -> return $ Just a
   [] -> return $ Nothing
   _ -> error $ "Found more than one " <> show (typeRep (Proxy @a)) <> " in the database"
-
-updateUserRole :: MonadDatabase m => User -> Text -> Text -> Role -> m (Maybe BoxAccessError)
-updateUserRole User{userID, username} targetUsername boxName role = 
-  if username == targetUsername 
-  then return $ Just UpdateSelfError 
-  else withConnection \c -> liftIO $ withTransaction c $ do
-    dbUnique (lookupBoxsByNameConn c [boxName]) >>= \case
-      Just Box{boxID} -> do
-        dbUnique (lookupUsersByUsernameConn c [targetUsername]) >>= \case
-          Just (User userID' _ _ _) -> do
-            perm <- maxPermissionLevelConn c userID boxID
-            if (perm == Just Collaborator && role < Collaborator
-             || perm >= Just Owner        && role < Owner) then do
-              userRole :: Maybe Role <- fmap (listToMaybe . fmap fromOnly) $ query c [sql| 
-                  select role from user_roles 
-                  inner join boxs on boxs.name = ?
-                  where user_ = ? and box = boxs.id;
-                |] (userID, boxName)
-              case userRole of
-                Nothing -> Nothing <$ void (execute c [sql|
-                    insert into user_roles (user_, role, box, creation_date)
-                    values (?, ?, ?, now());
-                  |] (userID', role, boxID))
-                Just _ -> Nothing <$ void (execute c [sql|
-                    update user_roles
-                    set role = ?
-                    where user_ = ? and box = ?;
-                  |] (role, userID', boxID))
-            else return $ Just RoleViolation
-          Nothing -> return $ Just UserDoesntExist
-      Nothing -> return $ Just BoxDoesntExist 
 
 sqlMany :: (MonadDatabase m, ToRow q) => Query -> [q] -> m ()
 sqlMany q things = withConnection \c -> void . liftIO $ executeMany c q things
@@ -498,7 +380,7 @@ samplesOfBox box = withConnection \c -> do
     |] (Only box)
 
 samplesOfBoxConn :: Connection -> Key Box -> IO [Sample]
-samplesOfBox c box = do
+samplesOfBoxConn c box = do
   query c [sql|
     select * from samples where box = ?;
     |] (Only box)

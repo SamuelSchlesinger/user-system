@@ -2,19 +2,18 @@ module Freeze.Ontology where
 
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Aeson (ToJSON, FromJSON)
-import Data.ByteString hiding (pack, unpack)
+import Data.ByteString (ByteString)
 import Data.Map (Map)
-import Data.Text (Text, unpack, pack)
+import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.Typeable (Typeable)
 import Data.UUID (toText)
 import Database.PostgreSQL.Simple (ToRow, FromRow)
-import Database.PostgreSQL.Simple.FromField (FromField(fromField), typename)
-import Database.PostgreSQL.Simple.ToField (ToField(toField), Action(Escape))
+import Database.PostgreSQL.Simple.FromField (FromField)
+import Database.PostgreSQL.Simple.ToField (ToField)
 import GHC.Generics (Generic)
-import Servant (FromHttpApiData(parseUrlPiece), ToHttpApiData(toUrlPiece))
+import Servant (FromHttpApiData, ToHttpApiData)
 import System.Random (randomIO)
-import Text.Read (readMaybe)
 
 newtype Key a = Key { unKey :: Text }
   deriving stock (Generic, Typeable)
@@ -45,55 +44,6 @@ data ExecutedMigration = ExecutedMigration
   , executedMigrationTimestamp :: UTCTime
   } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
     deriving anyclass (FromRow, ToRow, ToJSON, FromJSON)
-
-data Role = Read | Edit | Collaborator | Owner
-  deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance FromHttpApiData Role where
-  parseUrlPiece = maybeToEither . readMaybe . unpack where
-    maybeToEither (Just a) = Right a
-    maybeToEither Nothing = Left "Could not parse Role"
-
-instance ToHttpApiData Role where
-  toUrlPiece = pack . show
-
-instance ToField Role where
-  toField Read = Escape "Read"
-  toField Edit = Escape "Edit"
-  toField Collaborator = Escape "Collaborator"
-  toField Owner = Escape "Owner"
-  
-instance FromField Role where
-  fromField f mb = do
-    n <- typename f
-    if n == "role"
-    then case mb >>= roleFromByteString of
-            Nothing -> error "failed to marshall role"
-            Just ps -> pure ps
-    else error $ "expected type role, but got " <> show n
-    where
-      roleFromByteString "Read" = Just Read
-      roleFromByteString "Edit" = Just Edit
-      roleFromByteString "Collaborator" = Just Collaborator
-      roleFromByteString "Owner" = Just Owner
-      roleFromByteString _ = Nothing
-
-data SessionRole = SessionRole
-  { sessionRoleSession :: Key Session
-  , sessionRole :: Role
-  , sessionRoleBox :: Key Box
-  , sessionRoleCreationDate :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
-    deriving anyclass (FromRow, ToRow)
-
-data UserRole = UserRole
-  { userRoleUser :: Key User
-  , userRole :: Key Role
-  , userRoleBox :: Key Box
-  , userRoleCreationDate :: UTCTime
-  } deriving stock (Generic, Eq, Show, Read, Ord, Typeable)
-    deriving anyclass (FromRow, ToRow)
 
 -- 4 shelves
 type Shelf = Int
